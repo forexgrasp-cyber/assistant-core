@@ -1,0 +1,79 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'retention-analytics'
+    environment: '${ENVIRONMENT:-production}'
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+rule_files:
+  - 'rules/*.yml'
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'api'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['api:8765']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'api'
+
+  - job_name: 'web-customer'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['web-customer:8766']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'web-customer'
+
+  - job_name: 'web-dev'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['web-dev:8767']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'web-dev'
+
+  - job_name: 'mcp-server'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['mcp-server:8767']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'mcp-server'
+
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  - job_name: 'clickhouse'
+    static_configs:
+      - targets: ['clickhouse-exporter:9363']
+
+  - job_name: 'celery'
+    static_configs:
+      - targets: ['celery-exporter:9540']
+
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']

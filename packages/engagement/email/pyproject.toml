@@ -1,0 +1,45 @@
+[project]
+name = "retention-analytics-engagement-email"
+version = "0.1.0"
+description = "In-house email marketing service"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.3.0",
+    "sqlalchemy>=2.0.30",
+    "asyncpg>=0.29.0",
+    "redis>=5.0.0",
+    "httpx>=0.27.0",
+    "tenacity>=8.2.0",
+    "structlog>=24.1.0",
+    "mjml>=0.1.0",
+    "beautifulsoup4>=4.12.0",
+    "css-inliner>=0.3.0",
+    "retention-analytics-shared-types @ file://../../../shared-types",
+    "retention-analytics-shared-config @ file://../../../shared-config",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-mock>=3.14.0",
+    "faker>=25.0.0",
+    "ruff>=0.5.0",
+    "mypy>=1.10.0",
+]
+senders = [
+    "boto3>=1.34.0",  # AWS SES
+    "sendgrid>=6.10.0",  # SendGrid
+    "mailgun>=1.0.0",  # Mailgun
+]
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.uv.sources]
+shared = { path = "../../../shared-canonical-services", editable = true }
+retention-analytics-shared-types = { path = "../../../packages/shared-types", editable = true }
+retention-analytics-shared-config = { path = "../../../packages/shared-config", editable = true }
