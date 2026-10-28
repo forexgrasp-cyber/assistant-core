@@ -22,6 +22,8 @@ import { X, Save, Play, Undo, Redo, ZoomIn, ZoomOut, RotateCcw, Trash2, Download
 import { cn } from '@/lib/utils';
 import { NodePalette } from './node-palette';
 import { PropertiesPanel } from './properties-panel';
+import { TriggersPanel } from './triggers-panel';
+import { SettingsPanel } from './settings-panel';
 import { WorkflowNode, WorkflowEdge, WorkflowTrigger, WorkflowSettings, WorkflowViewport, WorkflowDefinition } from '@/types';
 import { nodeTypes } from './custom-nodes';
 import { api } from '@/lib/api';
@@ -346,14 +348,14 @@ export function WorkflowBuilder({
               {showTriggers && (
                 <div className="fixed right-4 top-44 w-80 max-h-[60vh]">
                   <div className="bg-card border border-border rounded-lg shadow-lg p-4 min-w-[200px] max-w-[400px] max-h-[80vh] overflow-auto">
-                    <div className="p-4 text-center text-muted-foreground">Triggers panel coming soon</div>
+                    <TriggersPanel triggers={triggers} onChange={setTriggers} />
                   </div>
                 </div>
               )}
               {showSettings && (
                 <div className="fixed right-4 top-44 w-80 max-h-[60vh]">
                   <div className="bg-card border border-border rounded-lg shadow-lg p-4 min-w-[200px] max-w-[400px] max-h-[80vh] overflow-auto">
-                    <div className="p-4 text-center text-muted-foreground">Settings panel coming soon</div>
+                    <SettingsPanel settings={settings} onChange={setSettings} />
                   </div>
                 </div>
               )}
