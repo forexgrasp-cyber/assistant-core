@@ -1,3 +1,7 @@
+# DEPLOY-ONLY PIPELINE (2026-10-28): the 11 test jobs moved to ci.yml, which
+# only runs when a human dispatches it. The suite runs locally before a push;
+# this workflow only builds the images and rolls them into the cluster.
+# Actions is reserved for deployment.
 name: CI/CD Pipeline
 
 on:
