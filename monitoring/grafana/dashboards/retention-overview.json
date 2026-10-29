@@ -1,0 +1,17 @@
+{
+  "apiVersion": 1,
+  "providers": [
+    {
+      "name": "Retention Analytics Dashboards",
+      "orgId": 1,
+      "folder": "Retention Analytics",
+      "type": "file",
+      "disableDeletion": false,
+      "updateIntervalSeconds": 10,
+      "allowUiUpdates": true,
+      "options": {
+        "path": "/etc/grafana/provisioning/dashboards"
+      }
+    }
+  ]
+}
