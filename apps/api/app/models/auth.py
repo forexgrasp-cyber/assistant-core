@@ -173,6 +173,12 @@ class User(SoftDeleteModel):
         nullable=True,
         index=True,
     )
+    platform_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("platforms.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     
     # Relationships
     agency: Mapped[Optional["Agency"]] = relationship("Agency", foreign_keys=[agency_id], back_populates="users")
@@ -198,6 +204,16 @@ class User(SoftDeleteModel):
         if self.locked_until is None:
             return False
         return datetime.utcnow() < self.locked_until
+    
+    @property
+    def hashed_password(self) -> Optional[str]:
+        """Alias for password_hash for compatibility."""
+        return self.password_hash
+
+    @hashed_password.setter
+    def hashed_password(self, value: Optional[str]):
+        """Set password_hash via alias."""
+        self.password_hash = value
 
 
 class Session(SoftDeleteModel):

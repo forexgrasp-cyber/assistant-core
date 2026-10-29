@@ -152,7 +152,7 @@ class WebhookEvent(SoftDeleteModel):
     # Relationships
     endpoint: Mapped["WebhookEndpoint"] = relationship("WebhookEndpoint", back_populates="events")
     deliveries: Mapped[List["WebhookDelivery"]] = relationship("WebhookDelivery", back_populates="event", cascade="all, delete-orphan")
-    dlq_entry: Mapped[Optional["DeadLetterQueue"]] = relationship("DeadLetterQueue", back_populates="event", uselist=False)
+    dlq_entry: Mapped[Optional["DeadLetterQueue"]] = relationship("DeadLetterQueue", back_populates="event", foreign_keys="DeadLetterQueue.event_id", uselist=False)
     
     __table_args__ = (
         Index("ix_webhook_events_endpoint_status", "endpoint_id", "status"),
@@ -333,7 +333,7 @@ class DeadLetterQueue(SoftDeleteModel):
     
     # Relationships
     endpoint: Mapped["WebhookEndpoint"] = relationship("WebhookEndpoint", back_populates="dlq_entries")
-    event: Mapped["WebhookEvent"] = relationship("WebhookEvent", back_populates="dlq_entry")
+    event: Mapped["WebhookEvent"] = relationship("WebhookEvent", back_populates="dlq_entry", foreign_keys=[event_id])
     delivery: Mapped[Optional["WebhookDelivery"]] = relationship("WebhookDelivery", foreign_keys=[delivery_id])
     resolved_by: Mapped[Optional["User"]] = relationship("User", foreign_keys=[resolved_by_id])
     

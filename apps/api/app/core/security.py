@@ -4,6 +4,7 @@ Security utilities: password hashing, JWT tokens, MFA, Passkeys.
 
 import hashlib
 import hmac
+import json
 import secrets
 import time
 from datetime import datetime, timedelta

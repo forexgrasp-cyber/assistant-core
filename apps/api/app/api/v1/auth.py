@@ -2,42 +2,43 @@
 Authentication API endpoints.
 """
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response, Cookie
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import structlog
 
 from ...core.config import get_settings
 from ...core.database import get_db
-from ...core.security import (
-    get_password_hash,
-    verify_password,
-    create_access_token,
-    create_refresh_token,
-    decode_access_token,
-    decode_refresh_token,
-    generate_totp_secret,
-    get_totp_uri,
-    verify_totp,
-    generate_qr_code,
-    generate_challenge,
-    generate_password_reset_token,
-    verify_password_reset_token,
-    generate_email_verification_token,
-    verify_email_verification_token,
-    generate_api_key,
-    verify_api_key,
-    SessionManager,
-)
+from ...core import security as security_module
+
+# Re-export security functions for backward compatibility
+get_password_hash = security_module.get_password_hash
+verify_password = security_module.verify_password
+create_access_token = security_module.create_access_token
+create_refresh_token = security_module.create_refresh_token
+decode_access_token = security_module.decode_access_token
+decode_refresh_token = security_module.decode_refresh_token
+generate_totp_secret = security_module.generate_totp_secret
+get_totp_uri = security_module.get_totp_uri
+verify_totp = security_module.verify_totp
+generate_qr_code = security_module.generate_qr_code
+generate_challenge = security_module.generate_challenge
+generate_password_reset_token = security_module.generate_password_reset_token
+verify_password_reset_token = security_module.verify_password_reset_token
+generate_email_verification_token = security_module.generate_email_verification_token
+verify_email_verification_token = security_module.verify_email_verification_token
+generate_api_key = security_module.generate_api_key
+verify_api_key = security_module.verify_api_key
+SessionManager = security_module.SessionManager
 from ...core.database import get_db
 from ...core.redis import get_redis
 from ...core.security import SessionManager
 from ...core.config import get_settings
-from ...models import User, UserRole, Role, Permission, MFADevice, Passkey, Session, ApiKey
+from ...models import User, UserRole, Role, Permission, MFADevice, Passkey, Session, ApiKey, Platform, Client
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -125,13 +126,15 @@ class APIKeyResponse(BaseModel):
 
 
 class UserResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    
     id: str
     email: str
     first_name: str
     last_name: str
     display_name: Optional[str]
     avatar_url: Optional[str]
-    role: str
+    role: str = "user"
     is_active: bool
     mfa_enabled: bool
     avatar_url: Optional[str]
@@ -139,6 +142,27 @@ class UserResponse(BaseModel):
     locale: str
     created_at: str
     last_login_at: Optional[str]
+    
+    @field_validator('id', mode='before')
+    @classmethod
+    def convert_id(cls, v):
+        return str(v)
+    
+    @field_validator('created_at', 'last_login_at', mode='before')
+    @classmethod
+    def convert_datetime(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, datetime):
+            return v.isoformat()
+        return str(v)
+    
+    @field_validator('role', mode='before')
+    @classmethod
+    def convert_role(cls, v):
+        if v is None:
+            return "user"
+        return str(v)
 
 
 # Dependencies
@@ -216,27 +240,53 @@ async def register(
             detail="Email already registered",
         )
     
+# Get or create default platform
+    from ...models import Agency, Platform, Client
+    from ...core.config import get_settings
+    
+    settings = get_settings()
+    
+    # Get or create default platform
+    result = await db.execute(select(Platform).where(Platform.name == settings.name))
+    platform = result.scalar_one_or_none()
+    if not platform:
+        platform = Platform(name=settings.name, slug=settings.name.lower().replace(" ", "-"))
+        db.add(platform)
+        await db.flush()
+    
     # Create agency if provided
     agency = None
+    client = None
     if user_data.agency_name:
-        from ...models import Agency
         agency = Agency(
             name=user_data.agency_name,
             slug=user_data.agency_name.lower().replace(" ", "-"),
             owner_id=None,  # Will be set after user creation
+            platform_id=platform.id,
         )
         db.add(agency)
+        await db.flush()
+        
+        # Create default client for the agency
+        client = Client(
+            agency_id=agency.id,
+            name=f"{user_data.agency_name} Client",
+            slug=user_data.agency_name.lower().replace(" ", "-") + "-client",
+        )
+        db.add(client)
         await db.flush()
     
     # Create user
     hashed_password = get_password_hash(user_data.password)
     user = User(
         email=user_data.email,
-        hashed_password=hashed_password,
+        password_hash=hashed_password,
         first_name=user_data.first_name,
         last_name=user_data.last_name,
         agency_id=agency.id if agency else None,
-        role="owner" if agency else "admin",
+        client_id=client.id if client else None,
+        platform_id=platform.id,
+        is_active=True,
     )
     
     db.add(user)
@@ -275,7 +325,7 @@ async def login(
     result = await db.execute(select(User).where(User.email == form_data.username))
     user = result.scalar_one_or_none()
     
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    if not user or not security_module.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -468,10 +518,23 @@ async def change_password(
     if len(new_password) < 12:
         raise HTTPException(status_code=400, detail="Password must be at least 12 characters")
     
-    current_user.hashed_password = get_password_hash(new_password)
-    current_user.password_changed_at = datetime.utcnow()
+    # Reload user in current session to ensure we're working with an attached instance
+    from sqlalchemy import select
+    result = await db.execute(select(User).where(User.id == current_user.id))
+    user = result.scalar_one()
     
+    new_hash = get_password_hash(new_password)
+    print(f"DEBUG: Setting password_hash to: {new_hash}")  # Debug
+    setattr(user, 'password_hash', new_hash)
+    setattr(user, 'password_changed_at', datetime.utcnow())
+    
+    db.add(user)
+    await db.flush()
     await db.commit()
+    await db.refresh(user)
+    
+    # Verify the password hash was saved
+    print(f"DEBUG: After refresh, password_hash = {user.password_hash}")  # Debug
     
     return {"message": "Password changed successfully"}
 

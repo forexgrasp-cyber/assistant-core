@@ -58,6 +58,7 @@ class Agency(BaseModel):
     # Billing
     billing_customer_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     subscription_status: Mapped[str] = mapped_column(String(50), default="trial", nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     trial_ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     
     # Owner

@@ -195,9 +195,9 @@ class WorkflowExecution(SoftDeleteModel):
     # Relationships
     workflow: Mapped["WorkflowDefinition"] = relationship("WorkflowDefinition", back_populates="executions")
     trigger: Mapped[Optional["WorkflowTrigger"]] = relationship("WorkflowTrigger", foreign_keys=[trigger_id])
-    node_executions: Mapped[List["WorkflowNodeExecution"]] = relationship("WorkflowNodeExecution", back_populates="execution", cascade="all, delete-orphan")
-    child_executions: Mapped[List["WorkflowExecution"]] = relationship("WorkflowExecution", backref="parent_execution", remote_side="WorkflowExecution.id")
-    root_execution: Mapped[Optional["WorkflowExecution"]] = relationship("WorkflowExecution", backref="child_executions", remote_side="WorkflowExecution.id", foreign_keys=[root_execution_id])
+    node_executions: Mapped[List["WorkflowNodeExecution"]] = relationship("WorkflowNodeExecution", back_populates="execution", foreign_keys="WorkflowNodeExecution.execution_id", cascade="all, delete-orphan")
+    child_executions: Mapped[List["WorkflowExecution"]] = relationship("WorkflowExecution", backref="parent_execution", remote_side="WorkflowExecution.id", foreign_keys="WorkflowExecution.parent_execution_id")
+    root_execution: Mapped[Optional["WorkflowExecution"]] = relationship("WorkflowExecution", backref="root_children", remote_side="WorkflowExecution.id", foreign_keys=[root_execution_id])
     
     __table_args__ = (
         Index("ix_workflow_executions_workflow_status", "workflow_id", "status"),
@@ -251,7 +251,7 @@ class WorkflowNodeExecution(SoftDeleteModel):
     )
     
     # Relationships
-    execution: Mapped["WorkflowExecution"] = relationship("WorkflowExecution", back_populates="node_executions")
+    execution: Mapped["WorkflowExecution"] = relationship("WorkflowExecution", back_populates="node_executions", foreign_keys="WorkflowNodeExecution.execution_id")
     sub_execution: Mapped[Optional["WorkflowExecution"]] = relationship("WorkflowExecution", foreign_keys=[sub_execution_id])
     
     __table_args__ = (

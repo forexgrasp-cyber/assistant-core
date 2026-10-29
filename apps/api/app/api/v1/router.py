@@ -6,11 +6,22 @@ from .ecommerce import router as ecommerce_router
 from .analytics import router as analytics_router
 from .reporting import router as reporting_router
 from .workflows import router as workflows_router
-from .workflows_v2 import router as workflows_v2_router
+
+# Optional imports - may fail if shared-canonical-services not fully available
+optional_routers = {}
+for module_name, router_name in [
+    ("workflows_v2", "workflows_v2_router"),
+    ("llm_models", "llm_models_router"),
+]:
+    try:
+        module = __import__(f".{module_name}", fromlist=[router_name])
+        optional_routers[router_name] = getattr(module, router_name)
+    except ImportError:
+        pass
+
 from .vertical_packs import router as vertical_packs_router
 from .webhooks import router as webhooks_router
 from .admin import router as admin_router
-from .llm_models import router as llm_models_router
 from .demo import router as demo_router
 
 from fastapi import APIRouter
@@ -25,11 +36,12 @@ api_router.include_router(ecommerce_router, prefix="/ecommerce", tags=["Ecommerc
 api_router.include_router(analytics_router, prefix="/analytics", tags=["Analytics"])
 api_router.include_router(reporting_router, prefix="/reports", tags=["Reporting"])
 api_router.include_router(workflows_router, prefix="/workflows", tags=["Workflows"])
-api_router.include_router(workflows_v2_router, prefix="/workflows", tags=["Workflows v2"])
+for router in optional_routers.values():
+    if router:
+        api_router.include_router(router, prefix="/workflows" if "workflows" in str(router) else "/llm", tags=["Workflows v2" if "workflows" in str(router) else "LLM Models"])
 api_router.include_router(vertical_packs_router, prefix="/vertical-packs", tags=["Vertical Packs"])
 api_router.include_router(webhooks_router, prefix="/webhooks", tags=["Webhooks"])
 api_router.include_router(admin_router, prefix="/admin", tags=["Admin"])
-api_router.include_router(llm_models_router, prefix="/llm", tags=["LLM Models"])
 api_router.include_router(demo_router, prefix="/demo", tags=["Demo"])
 
 

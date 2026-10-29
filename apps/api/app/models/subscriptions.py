@@ -115,6 +115,12 @@ class Subscription(SoftDeleteModel):
     prorate: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     
     # Dunning
+    dunning_config_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("dunning_configs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     dunning_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     next_dunning_attempt_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     last_dunning_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -138,6 +144,7 @@ class Subscription(SoftDeleteModel):
     items: Mapped[List["SubscriptionItem"]] = relationship("SubscriptionItem", back_populates="subscription", cascade="all, delete-orphan")
     invoices: Mapped[List["Invoice"]] = relationship("Invoice", back_populates="subscription", cascade="all, delete-orphan")
     dunning_events: Mapped[List["DunningEvent"]] = relationship("DunningEvent", back_populates="subscription", cascade="all, delete-orphan")
+    dunning_config: Mapped[Optional["DunningConfig"]] = relationship("DunningConfig", back_populates="subscriptions")
     
     __table_args__ = (
         Index("ix_subscriptions_client_status", "client_id", "status"),

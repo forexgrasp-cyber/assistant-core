@@ -40,6 +40,7 @@ class EmailTemplate(SoftDeleteModel):
     
     # Relationships
     campaigns: Mapped[List["EmailCampaign"]] = relationship("EmailCampaign", back_populates="template")
+    events: Mapped[List["EmailEvent"]] = relationship("EmailEvent", back_populates="template", cascade="all, delete-orphan")
     
     __table_args__ = (
         Index("ix_email_templates_client_slug", "client_id", "slug", unique=True),
@@ -59,6 +60,14 @@ class EmailCampaign(SoftDeleteModel):
     segment_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("customer_segments.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    
+    # A/B test parent campaign
+    parent_campaign_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("email_campaigns.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
@@ -104,9 +113,12 @@ class EmailCampaign(SoftDeleteModel):
     ab_variants: Mapped[List["EmailCampaign"]] = relationship(
         "EmailCampaign",
         backref="parent_campaign",
+        foreign_keys=[parent_campaign_id],
         remote_side="EmailCampaign.id",
         cascade="all, delete-orphan",
+        single_parent=True,
     )
+    events: Mapped[List["EmailEvent"]] = relationship("EmailEvent", back_populates="campaign", cascade="all, delete-orphan")
     
     __table_args__ = (
         Index("ix_email_campaigns_status_scheduled", "status", "scheduled_at"),
@@ -190,6 +202,7 @@ class EmailMessage(SoftDeleteModel):
     
     # Relationships
     campaign: Mapped[Optional["EmailCampaign"]] = relationship("EmailCampaign", back_populates="messages")
+    flow: Mapped[Optional["FlowDefinition"]] = relationship("FlowDefinition", back_populates="messages")
     events: Mapped[List["EmailEvent"]] = relationship("EmailEvent", back_populates="message", cascade="all, delete-orphan")
     
     __table_args__ = (
@@ -250,6 +263,12 @@ class EmailEvent(SoftDeleteModel):
     
     # Metadata
     meta: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    
+    # Relationships
+    message: Mapped[Optional["EmailMessage"]] = relationship("EmailMessage", back_populates="events")
+    campaign: Mapped[Optional["EmailCampaign"]] = relationship("EmailCampaign", back_populates="events")
+    flow: Mapped[Optional["FlowDefinition"]] = relationship("FlowDefinition", back_populates="email_events")
+    template: Mapped[Optional["EmailTemplate"]] = relationship("EmailTemplate", back_populates="events")
     
     __table_args__ = (
         Index("ix_email_events_type_timestamp", "event_type", "timestamp"),
@@ -503,12 +522,14 @@ class PushMessage(SoftDeleteModel):
     revenue_attributed: Mapped[float] = mapped_column(Numeric(12, 2), default=0, nullable=False)
     meta: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
     
+    # Relationships
+    flow: Mapped[Optional["FlowDefinition"]] = relationship("FlowDefinition", back_populates="push_messages")
+    
     __table_args__ = (
         Index("ix_push_messages_campaign_status", "campaign_id", "status"),
     )
 
 
-# Flow Models
 class FlowDefinition(SoftDeleteModel):
     """Flow/automation definition."""
     __tablename__ = "flow_definitions"
@@ -547,6 +568,7 @@ class FlowDefinition(SoftDeleteModel):
     executions: Mapped[List["FlowExecution"]] = relationship("FlowExecution", back_populates="flow", cascade="all, delete-orphan")
     messages: Mapped[List["EmailMessage"]] = relationship("EmailMessage", back_populates="flow")
     push_messages: Mapped[List["PushMessage"]] = relationship("PushMessage", back_populates="flow")
+    email_events: Mapped[List["EmailEvent"]] = relationship("EmailEvent", back_populates="flow", cascade="all, delete-orphan")
     
     __table_args__ = (
         Index("ix_flow_definitions_client_slug", "client_id", "slug", unique=True),
@@ -744,6 +766,9 @@ class DeliverabilityEvent(SoftDeleteModel):
     
     # Raw data
     raw_data: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    
+    # Relationships
+    config: Mapped[Optional["DeliverabilityConfig"]] = relationship("DeliverabilityConfig", back_populates="events")
     
     __table_args__ = (
         Index("ix_deliverability_events_type_timestamp", "event_type", "timestamp"),

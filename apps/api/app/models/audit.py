@@ -247,7 +247,7 @@ class ConsentRecord(SoftDeleteModel):
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     
     # Relationships
-    customer: Mapped[Optional["Customer"]] = relationship("Customer", foreign_keys="Customer.email==ConsentRecord.subject_email")
+    customer: Mapped[Optional["Customer"]] = relationship("Customer", primaryjoin="and_(foreign(ConsentRecord.subject_email)==Customer.email, ConsentRecord.subject_type=='customer')", viewonly=True)
     
     __table_args__ = (
         Index("ix_consent_records_subject_purpose", "subject_email", "purpose"),

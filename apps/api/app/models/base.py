@@ -5,9 +5,46 @@ Base model and mixins for all database models.
 import uuid
 from datetime import datetime
 from typing import Any, Dict, Optional
-from sqlalchemy import DateTime, func, UUID as SQLUUID
+from sqlalchemy import DateTime, func, UUID as SQLUUID, TypeDecorator, CHAR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, declared_attr
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
+
+
+class GUID(TypeDecorator):
+    """Platform-independent GUID type.
+    
+    Uses PostgreSQL's UUID type when available, otherwise uses
+    a CHAR(36) for SQLite and other databases.
+    """
+    impl = CHAR
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == 'postgresql':
+            return dialect.type_descriptor(PG_UUID(as_uuid=True))
+        elif dialect.name == 'sqlite':
+            return dialect.type_descriptor(CHAR(36))
+        else:
+            return dialect.type_descriptor(CHAR(36))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if not isinstance(value, uuid.UUID):
+            value = uuid.UUID(value)
+        if dialect.name == 'postgresql':
+            return value
+        elif dialect.name == 'sqlite':
+            return str(value)
+        else:
+            return str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, uuid.UUID):
+            return value
+        return uuid.UUID(value)
 
 
 class Base(DeclarativeBase):
@@ -30,7 +67,7 @@ class Base(DeclarativeBase):
 class UUIDMixin:
     """Mixin for UUID primary key."""
     id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
+        GUID(),
         primary_key=True,
         default=uuid.uuid4,
         index=True,

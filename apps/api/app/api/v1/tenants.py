@@ -2,9 +2,10 @@
 Tenant/Agency management API endpoints.
 """
 
+from datetime import datetime
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from pydantic import BaseModel, Field, EmailStr
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
+from pydantic import BaseModel, Field, EmailStr, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
@@ -29,6 +30,7 @@ class AgencyCreate(BaseModel):
     currency: str = Field(default="USD")
     white_label_domain: Optional[str] = None
     white_label_enabled: bool = False
+    settings: Optional[dict] = None
 
 
 class AgencyUpdate(BaseModel):
@@ -46,6 +48,8 @@ class AgencyUpdate(BaseModel):
 
 
 class AgencyResponse(BaseModel):
+    model_config = {"from_attributes": True}
+    
     id: str
     name: str
     slug: str
@@ -67,6 +71,18 @@ class AgencyResponse(BaseModel):
     owner_email: Optional[str] = None
     client_count: int = 0
     user_count: int = 0
+    
+    @field_validator('id', 'owner_id', mode='before')
+    @classmethod
+    def convert_uuid(cls, v):
+        return str(v)
+    
+    @field_validator('created_at', 'updated_at', mode='before')
+    @classmethod
+    def convert_datetime(cls, v):
+        if isinstance(v, datetime):
+            return v.isoformat()
+        return str(v)
 
 
 class AgencyListResponse(BaseModel):
@@ -207,7 +223,7 @@ async def get_agency(
     result = await db.execute(
         select(Agency)
         .options(selectinload(Agency.owner))
-        .where(Agency.id == agency_id)
+        .where(Agency.id == agency_id, Agency.is_active == True)
     )
     agency = result.scalar_one_or_none()
     

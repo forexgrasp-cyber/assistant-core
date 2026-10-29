@@ -9,6 +9,7 @@ Covers critical paths:
 
 import pytest
 from httpx import AsyncClient
+import uuid
 
 
 class TestAuth:
@@ -16,19 +17,20 @@ class TestAuth:
 
     async def test_register_and_login_flow(self, async_client: AsyncClient):
         """Test complete registration → login → get me flow."""
-        # Register a new user
+        # Register a new user with unique email
+        unique_id = uuid.uuid4().hex[:8]
         register_data = {
-            "email": "integration.test@example.com",
+            "email": f"integration.test.{unique_id}@example.com",
             "password": "TestPassword123!",
             "first_name": "Integration",
             "last_name": "Test",
-            "agency_name": "Integration Test Agency",
+            "agency_name": f"Integration Test Agency {unique_id}",
         }
 
         response = await async_client.post("/api/v1/auth/register", json=register_data)
         assert response.status_code == 201, f"Registration failed: {response.text}"
         data = response.json()
-        assert data["email"] == "integration.test@example.com"
+        assert data["email"] == register_data["email"]
         assert data["first_name"] == "Integration"
         assert data["last_name"] == "Test"
         assert data["is_active"] is True
@@ -37,9 +39,9 @@ class TestAuth:
         # Login with the registered user
         login_response = await async_client.post(
             "/api/v1/auth/login",
-            data={"username": "integration.test@example.com", "password": "TestPassword123!"},
+            data={"username": f"integration.test.{unique_id}@example.com", "password": "TestPassword123!"},
         )
-        assert response.status_code == 200, f"Login failed: {login_response.text}"
+        assert login_response.status_code == 200, f"Login failed: {login_response.text}"
         login_data = login_response.json()
         assert "access_token" in login_data
         assert "refresh_token" in login_data
@@ -54,13 +56,13 @@ class TestAuth:
         assert me_response.status_code == 200, f"Get me failed: {me_response.text}"
         me_data = me_response.json()
         assert me_data["id"] == user_id
-        assert me_data["email"] == "integration.test@example.com"
+        assert me_data["email"] == register_data["email"]
         assert me_data["is_active"] is True
 
         # Change password
         change_password_response = await async_client.put(
             "/api/v1/auth/me/password",
-            json={
+            params={
                 "current_password": "TestPassword123!",
                 "new_password": "NewPassword456!",
             },
@@ -71,7 +73,7 @@ class TestAuth:
         # Login with new password
         login_response2 = await async_client.post(
             "/api/v1/auth/login",
-            data={"username": "integration.test@example.com", "password": "NewPassword456!"},
+            data={"username": register_data["email"], "password": "NewPassword456!"},
         )
         assert login_response2.status_code == 200, f"Login with new password failed: {login_response2.text}"
         new_token_data = login_response2.json()
@@ -93,20 +95,34 @@ class TestAuth:
         assert response.status_code == 401
         assert "Incorrect email or password" in response.text
 
-    async def test_register_duplicate_email(self, async_client: AsyncClient, test_user):
+    async def test_register_duplicate_email(self, async_client: AsyncClient):
         """Test registration fails with duplicate email."""
-        response = await async_client.post(
+        # First registration
+        response1 = await async_client.post(
             "/api/v1/auth/register",
             json={
-                "email": "test@example.com",
+                "email": "duplicate@example.com",
                 "password": "TestPassword123!",
                 "first_name": "Duplicate",
                 "last_name": "User",
                 "agency_name": "Duplicate Agency",
             },
         )
-        assert response.status_code == 400
-        assert "already registered" in response.text.lower()
+        assert response1.status_code == 201
+        
+        # Second registration with same email
+        response2 = await async_client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "duplicate@example.com",
+                "password": "TestPassword123!",
+                "first_name": "Duplicate",
+                "last_name": "User",
+                "agency_name": "Duplicate Agency 2",
+            },
+        )
+        assert response2.status_code == 400
+        assert "already registered" in response2.text.lower()
 
     async def test_get_me_without_auth(self, async_client: AsyncClient):
         """Test that /me requires authentication."""
