@@ -31,7 +31,7 @@ from shared.demo.tenant_manager import (
     get_demo_snapshot_manager,
     DEFAULT_SCENARIOS,
 )
-from shared.db_paths import DB_WORKFLOW_SAAS
+from shared.infrastructure.service_registry import DB_WORKFLOW_SAAS
 
 from ..core.config import get_settings
 

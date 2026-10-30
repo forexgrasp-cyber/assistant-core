@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Save, RotateCcw, AlertTriangle, CheckCircle, XCircle, Bell, Mail, Slack } from 'lucide-react';
+import { X, Save, RotateCcw, AlertTriangle, CheckCircle, XCircle, Bell, Mail, Slack } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { WorkflowSettings } from '@/types';
 
@@ -84,7 +84,7 @@ export function SettingsPanel({ settings, onChange }: SettingsPanelProps) {
                 <label
                   key={opt.value}
                   className={cn(
-                    'flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer',
+                    'flex items-center gap-3 p-3 rounded-lg border transition-colors',
                     settings.errorHandling === opt.value
                       ? 'border-primary bg-primary/5'
                       : 'border-border hover:border-primary/50'
@@ -224,8 +224,8 @@ function NotificationChannelList({ channels, onChange, availableChannels }: Noti
             <span className="text-sm">{channel.label}</span>
             {isEnabled && <span className="ml-auto text-xs text-green-600">Enabled</span>}
           </label>
-        );
-      })}
+        )}
+      )}
       {channels.length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-4">
           No notification channels configured

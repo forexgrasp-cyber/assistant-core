@@ -29,7 +29,6 @@ import { nodeTypes } from './custom-nodes';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
 
-// Simple Panel component replacement
 const Panel = ({ position, children, className }: { position: string; children: React.ReactNode; className?: string }) => {
   const positions: Record<string, string> = {
     'top-right': 'top-4 right-4',
@@ -62,9 +61,9 @@ export function WorkflowBuilder({
   onSave,
   onBack,
 }: WorkflowBuilderProps) {
-  const [nodes, setNodes] = useState<Node<WorkflowNode['data']>[]>(initialNodes);
+  const [nodes, setNodes] = useState<Node<WorkflowNodeData>[]>(initialNodes);
   const [edges, setEdges] = useState<Edge<WorkflowEdge['data']>[]>(initialEdges);
-  const [selectedNode, setSelectedNode] = useState<Node<WorkflowNode['data']> | null>(null);
+  const [selectedNode, setSelectedNode] = useState<Node<WorkflowNodeData> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
   const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 });
@@ -137,7 +136,7 @@ export function WorkflowBuilder({
       return updated;
     });
     setSelectedNode(newNode);
-  };
+  }, [getEdges, pushHistory, project]);
 
   const handleUpdateNode = (nodeId: string, data: Partial<WorkflowNode['data']>) => {
     setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n));
@@ -211,7 +210,6 @@ export function WorkflowBuilder({
     try {
       const result = await api.post(`/workflows/${workflowId}/execute`, {});
       toast.success('Workflow execution started');
-      // Navigate to execution monitoring
     } catch (error) {
       toast.error('Failed to execute workflow');
     } finally {
@@ -240,7 +238,6 @@ export function WorkflowBuilder({
   const exportWorkflow = () => {
     const data = { nodes, edges, viewport, triggers, settings };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = 'workflow.json';
@@ -274,10 +271,10 @@ export function WorkflowBuilder({
               <Redo className="w-4 h-4" />
             </button>
             <div className="w-px h-6 bg-border mx-1" />
-            <button onClick={() => setRFViewport({ ...viewport, zoom: Math.min(viewport.zoom * 1.2, 2) })} className="p-2 hover:bg-accent rounded transition-colors" title="Zoom In">
+            <button onClick={() => setRFViewport(v => ({ ...v, zoom: Math.min(v.zoom * 1.2, 2) }))} className="p-2 hover:bg-accent rounded transition-colors" title="Zoom In">
               <ZoomIn className="w-4 h-4" />
             </button>
-            <button onClick={() => setRFViewport({ ...viewport, zoom: Math.max(viewport.zoom / 1.2, 0.1) })} className="p-2 hover:bg-accent rounded transition-colors" title="Zoom Out">
+            <button onClick={() => setRFViewport((v: { x: number; y: number; zoom: number }) => ({ ...v, zoom: Math.max(v.zoom / 1.2, 0.1) }))} className="p-2 hover:bg-accent rounded transition-colors" title="Zoom Out">
               <ZoomOut className="w-4 h-4" />
             </button>
             <button onClick={() => fitView()} className="p-2 hover:bg-accent rounded transition-colors" title="Fit View">
@@ -318,10 +315,7 @@ export function WorkflowBuilder({
           >
             <Background color="#e5e7eb" gap={20} size={1} />
             <Controls />
-            <MiniMap
-              nodeColor={({ data }: any) => data?.color || '#6b7280'}
-              nodeStrokeWidth={1.5}
-            />
+            <MiniMap nodeColor={({ data }: any) => data?.color || '#6b7280'} nodeStrokeWidth={1.5} />
           </ReactFlow>
 
           {/* Sidebar Panels */}

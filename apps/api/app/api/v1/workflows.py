@@ -31,8 +31,9 @@ async def create_workflow(
     from ...models import WorkflowDefinition
     
     workflow = WorkflowDefinition(
-        client_id=current_user.client_id,
+        agency_id=current_user.client_id,
         name=workflow_data.get("name"),
+        slug=workflow_data.get("slug"),
         description=workflow_data.get("description"),
         category=workflow_data.get("category", "general"),
         tags=workflow_data.get("tags", []),

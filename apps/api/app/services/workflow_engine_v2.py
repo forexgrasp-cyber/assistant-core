@@ -24,7 +24,7 @@ from shared.workflows.workflow_execution_service import (
     get_workflow_execution_service,
 )
 from shared.workflows.workflow_scheduler import WorkflowScheduler, get_workflow_execution_service as get_scheduler
-from shared.db_paths import (
+from shared.infrastructure.service_registry import (
     DB_WORKFLOW_SAAS,
     DB_PIPELINE_OUTBOX,
     DB_IDEMPOTENCY,

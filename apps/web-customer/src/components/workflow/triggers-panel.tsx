@@ -25,7 +25,7 @@ export function TriggersPanel({ triggers, onChange }: TriggersPanelProps) {
   };
 
   const handleAddTrigger = () => {
-    const trigger: WorkflowTrigger = {
+  const trigger: WorkflowTrigger = {
       id: `trigger-${Date.now()}`,
       name: newTrigger.name || 'New Trigger',
       type: newTrigger.type || 'schedule',
@@ -39,15 +39,15 @@ export function TriggersPanel({ triggers, onChange }: TriggersPanelProps) {
   };
 
   const handleUpdateTrigger = (id: string, updates: Partial<WorkflowTrigger>) => {
-    onChange(triggers.map(t => t.id === id ? { ...t, ...updates } : t));
+    onChange(triggers.map((t) => (t.id === id ? { ...t, ...updates } : t)));
   };
 
   const handleDeleteTrigger = (id: string) => {
-    onChange(triggers.filter(t => t.id !== id));
+    onChange(triggers.filter((t) => t.id !== id));
   };
 
   const handleConfigChange = (id: string, key: string, value: any) => {
-    const trigger = triggers.find(t => t.id === id);
+    const trigger = triggers.find((t) => t.id === id);
     if (trigger) {
       handleUpdateTrigger(id, {
         config: { ...trigger.config, [key]: value },
@@ -57,7 +57,7 @@ export function TriggersPanel({ triggers, onChange }: TriggersPanelProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold">Triggers</h3>
         <button
           onClick={() => setShowAddModal(true)}
@@ -75,7 +75,7 @@ export function TriggersPanel({ triggers, onChange }: TriggersPanelProps) {
         </div>
       ) : (
         <div className="space-y-3">
-          {triggers.map(trigger => {
+          {triggers.map((trigger) => {
             const Icon = triggerTypeIcons[trigger.type] || Zap;
             return (
               <div
@@ -94,21 +94,24 @@ export function TriggersPanel({ triggers, onChange }: TriggersPanelProps) {
                       <input
                         type="text"
                         value={trigger.name}
-                        onChange={e => handleUpdateTrigger(trigger.id, { name: e.target.value })}
-                        className="flex-1 bg-transparent border-none focus:outline-none text-sm font-medium"
+                        onChange={(e) => handleUpdateTrigger(trigger.id, { name: e.target.value })}
+                        className="flex-1 bg-transparent border-none text-sm font-medium"
                       />
                       <label className="flex items-center gap-1.5 text-sm">
                         <input
                           type="checkbox"
                           checked={trigger.isActive}
-                          onChange={e => handleUpdateTrigger(trigger.id, { isActive: e.target.checked })}
-                          className="rounded border-input"
+                          onChange={(e) =>
+                            handleUpdateTrigger(trigger.id, { isActive: e.target.checked })}
+                          className="rounded text-primary"
                         />
                         Active
                       </label>
                     </div>
-                    <p className="text-xs text-muted-foreground capitalize">{trigger.type} trigger</p>
-                    
+                    <p className="text-xs text-muted-foreground capitalize">
+                      {trigger.type} trigger
+                    </p>
+
                     {trigger.type === 'schedule' && (
                       <div className="mt-2 space-y-2 text-sm">
                         <div>
@@ -116,7 +119,8 @@ export function TriggersPanel({ triggers, onChange }: TriggersPanelProps) {
                           <input
                             type="text"
                             value={trigger.config.cron || ''}
-                            onChange={e => handleConfigChange(trigger.id, 'cron', e.target.value)}
+                            onChange={(e) =>
+                              handleConfigChange(trigger.id, 'cron', e.target.value)}
                             placeholder="0 9 * * 1-5"
                             className="w-full mt-1 px-2 py-1 border border-input rounded bg-background text-sm"
                           />
@@ -126,7 +130,8 @@ export function TriggersPanel({ triggers, onChange }: TriggersPanelProps) {
                           <input
                             type="text"
                             value={trigger.config.timezone || 'UTC'}
-                            onChange={e => handleConfigChange(trigger.id, 'timezone', e.target.value)}
+                            onChange={(e) =>
+                              handleConfigChange(trigger.id, 'timezone', e.target.value)}
                             className="w-full mt-1 px-2 py-1 border border-input rounded bg-background text-sm"
                           />
                         </div>
@@ -140,7 +145,8 @@ export function TriggersPanel({ triggers, onChange }: TriggersPanelProps) {
                           <input
                             type="text"
                             value={trigger.config.eventName || ''}
-                            onChange={e => handleConfigChange(trigger.id, 'eventName', e.target.value)}
+                            onChange={(e) =>
+                              handleConfigChange(trigger.id, 'eventName', e.target.value)}
                             placeholder="user.signup"
                             className="w-full mt-1 px-2 py-1 border border-input rounded bg-background text-sm"
                           />
@@ -150,7 +156,8 @@ export function TriggersPanel({ triggers, onChange }: TriggersPanelProps) {
                           <input
                             type="text"
                             value={trigger.config.source || ''}
-                            onChange={e => handleConfigChange(trigger.id, 'source', e.target.value)}
+                            onChange={(e) =>
+                              handleConfigChange(trigger.id, 'source', e.target.value)}
                             placeholder="analytics"
                             className="w-full mt-1 px-2 py-1 border border-input rounded bg-background text-sm"
                           />
@@ -165,7 +172,8 @@ export function TriggersPanel({ triggers, onChange }: TriggersPanelProps) {
                           <input
                             type="text"
                             value={trigger.config.path || ''}
-                            onChange={e => handleConfigChange(trigger.id, 'path', e.target.value)}
+                            onChange={(e) =>
+                              handleConfigChange(trigger.id, 'path', e.target.value)}
                             placeholder="/webhook/custom-event"
                             className="w-full mt-1 px-2 py-1 border border-input rounded bg-background text-sm"
                           />
@@ -175,7 +183,8 @@ export function TriggersPanel({ triggers, onChange }: TriggersPanelProps) {
                           <input
                             type="password"
                             value={trigger.config.secret || ''}
-                            onChange={e => handleConfigChange(trigger.id, 'secret', e.target.value)}
+                            onChange={(e) =>
+                              handleConfigChange(trigger.id, 'secret', e.target.value)}
                             placeholder="hmac secret"
                             className="w-full mt-1 px-2 py-1 border border-input rounded bg-background text-sm"
                           />
@@ -199,7 +208,7 @@ export function TriggersPanel({ triggers, onChange }: TriggersPanelProps) {
 
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-card border border-border rounded-lg p-6 w-full max-w-md">
+          <div className="bg-card border border-border rounded-lg p-4 min-w-[200px] max-w-[400px] max-h-[80vh] overflow-auto">
             <h4 className="font-semibold mb-4">Add Trigger</h4>
             <div className="space-y-4">
               <div>
@@ -207,7 +216,7 @@ export function TriggersPanel({ triggers, onChange }: TriggersPanelProps) {
                 <input
                   type="text"
                   value={newTrigger.name || ''}
-                  onChange={e => setNewTrigger({ ...newTrigger, name: e.target.value })}
+                  onChange={(e) => setNewTrigger({ ...newTrigger, name: e.target.value })}
                   className="w-full px-3 py-2 border border-input rounded bg-background"
                   placeholder="My Trigger"
                 />
@@ -216,7 +225,8 @@ export function TriggersPanel({ triggers, onChange }: TriggersPanelProps) {
                 <label className="text-sm font-medium mb-2 block">Type</label>
                 <select
                   value={newTrigger.type}
-                  onChange={e => setNewTrigger({ ...newTrigger, type: e.target.value as any })}
+                  onChange={(e) =>
+                    setNewTrigger({ ...newTrigger, type: e.target.value as any })}
                   className="w-full px-3 py-2 border border-input rounded bg-background"
                 >
                   <option value="schedule">Schedule (Cron)</option>
@@ -246,3 +256,29 @@ export function TriggersPanel({ triggers, onChange }: TriggersPanelProps) {
     </div>
   );
 }
+
+const NODE_PALETTE_ITEMS = [
+  { type: 'analytics_query', label: 'Query Analytics', description: 'Run SQL query', icon: null, color: '#3b82f6', service: 'analytics', action: 'query', configSchema: {} },
+  { type: 'analytics_cohort', label: 'Cohort Analysis', description: 'Analyze cohorts', icon: null, color: '#3b82f6', service: 'analytics', action: 'cohort', configSchema: {} },
+  { type: 'analytics_rfm', label: 'RFM Segmentation', description: 'Segment customers', icon: null, color: '#3b82f6', service: 'analytics', action: 'rfm', configSchema: {} },
+  { type: 'analytics_attribution', label: 'Attribution', description: 'Revenue attribution', icon: null, color: '#3b82f6', service: 'analytics', action: 'attribution', configSchema: {} },
+  { type: 'analytics_predictive', label: 'Predictive Scoring', description: 'Churn/LTV predictions', icon: null, color: '#3b82f6', service: 'analytics', action: 'predictive', configSchema: {} },
+  { type: 'analytics_anomaly', label: 'Anomaly Detection', description: 'Detect anomalies', icon: null, color: '#3b82f6', service: 'analytics', action: 'anomaly', configSchema: {} },
+  { type: 'engagement_email', label: 'Send Email', description: 'Send email', icon: null, color: '#10b981', service: 'engagement', action: 'send_email', configSchema: {} },
+  { type: 'engagement_sms', label: 'Send SMS', description: 'Send SMS', icon: null, color: '#10b981', service: 'engagement', action: 'send_sms', configSchema: {} },
+  { type: 'engagement_push', label: 'Send Push', description: 'Send push', icon: null, color: '#10b981', service: 'engagement', action: 'send_push', configSchema: {} },
+  { type: 'ecommerce_order', label: 'Create Order', description: 'Create order', icon: null, color: '#f59e0b', service: 'ecommerce', action: 'create_order', configSchema: {} },
+  { type: 'ecommerce_customer', label: 'Upsert Customer', description: 'Update customer', icon: null, color: '#f59e0b', service: 'ecommerce', action: 'upsert_customer', configSchema: {} },
+  { type: 'reporting_generate', label: 'Generate Report', description: 'Generate report', icon: null, color: '#8b5cf6', service: 'reporting', action: 'generate_report', configSchema: {} },
+  { type: 'reporting_schedule', label: 'Schedule Report', description: 'Schedule report', icon: null, color: '#8b5cf6', service: 'reporting', action: 'schedule_report', configSchema: {} },
+  { type: 'condition', label: 'Condition', description: 'Branch on condition', icon: null, color: '#ef4444', service: 'custom', action: 'condition', configSchema: {} },
+  { type: 'delay', label: 'Delay', description: 'Wait', icon: null, color: '#6b7280', service: 'custom', action: 'delay', configSchema: {} },
+  { type: 'loop', label: 'Loop', description: 'Iterate', icon: null, color: '#6b7280', service: 'custom', action: 'loop', configSchema: {} },
+  { type: 'webhook_call', label: 'Call Webhook', description: 'HTTP request', icon: null, color: '#ec4899', service: 'custom', action: 'webhook', configSchema: {} },
+  { type: 'transform_data', label: 'Transform Data', description: 'JS transform', icon: null, color: '#6366f1', service: 'custom', action: 'transform', configSchema: {} },
+];
+
+export default {
+  TriggersPanel,
+  NODE_PALETTE_ITEMS,
+};
