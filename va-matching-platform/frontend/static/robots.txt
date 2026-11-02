@@ -1,0 +1,44 @@
+# Robots.txt for VA Matching Platform
+# This file tells search engine crawlers which pages they can or cannot crawl.
+
+User-agent: *
+Allow: /
+
+# Disallow private/admin areas
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /admin/
+Disallow: /webhooks/
+Disallow: /tasks/
+Disallow: /webhooks/
+Disallow: /_internal/
+Disallow: /_health/
+Disallow: /_ready/
+
+# Disallow sensitive endpoints
+Disallow: /api/auth/
+Disallow: /api/billing/
+Disallow: /api/webhooks/
+Disallow: /webhooks/stripe
+
+# Allow public pages
+Allow: /
+Allow: /intake
+Allow: /intake/*
+Allow: /pricing
+Allow: /about
+Allow: /contact
+Allow: /pricing/*
+Allow: /blog
+Allow: /blog/*
+Allow: /docs
+Allow: /docs/*
+
+# Sitemap location
+Sitemap: https://va-matching.platform/sitemap.xml
+
+# Crawl delay (optional - be respectful)
+Crawl-delay: 10
+
+# Host
+Host: https://va-matching.platform

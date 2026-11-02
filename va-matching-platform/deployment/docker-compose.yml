@@ -1,0 +1,68 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: va-matching-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: va_matching
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+      args:
+        SHARED_SERVICES_PATH: ../shared-canonical-services
+    container_name: va-matching-app
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/va_matching
+      AUTH_DATABASE_URL: sqlite:///tmp/auth.db
+      PAYMENT_LEDGER_DB: /tmp/sales_ledger.db
+      SMTP_HOST: ""
+      CREDENTIAL_ENCRYPTION_KEY: "${CREDENTIAL_ENCRYPTION_KEY}"
+      SECRET_KEY: "${SECRET_KEY}"
+      STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY}"
+      STRIPE_WEBHOOK_SECRET: "${STRIPE_WEBHOOK_SECRET}"
+      STRIPE_PUBLIC_KEY: "${STRIPE_PUBLIC_KEY}"
+      CONNECT_RETURN_URL: "${CONNECT_RETURN_URL}"
+      CONNECT_REFRESH_URL: "${CONNECT_REFRESH_URL}"
+      UPWORK_CLIENT_ID: "${UPWORK_CLIENT_ID}"
+      UPWORK_CLIENT_SECRET: "${UPWORK_CLIENT_SECRET}"
+      FIVERR_CLIENT_ID: "${FIVERR_CLIENT_ID}"
+      FIVERR_CLIENT_SECRET: "${FIVERR_CLIENT_SECRET}"
+      TOPTAL_CLIENT_ID: "${TOPTAL_CLIENT_ID}"
+      TOPTAL_CLIENT_SECRET: "${TOPTAL_CLIENT_SECRET}"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Optional: Nginx reverse proxy with SSL termination
+  nginx:
+    image: nginx:alpine
+    container_name: va-matching-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  pgdata:

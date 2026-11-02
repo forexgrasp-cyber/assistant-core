@@ -1,0 +1,400 @@
+{% extends "base.html" %}
+
+{% block title %}Client Intake - VA Matching Platform{% endblock %}
+
+{% block meta_description %}Complete your client intake form to get matched with the perfect Virtual Assistant. Our AI-powered matching algorithm finds VAs that fit your specific needs.{% endblock %}
+
+{% block meta_keywords %}client intake, virtual assistant, VA matching, business automation, remote staffing{% endblock %}
+
+{% block og_title %}Client Intake - VA Matching Platform{% endblock %}
+
+{% block og_description %}Complete your client intake form to get matched with the perfect Virtual Assistant using our AI-powered matching algorithm.{% endblock %}
+
+{% block og_image %}/static/images/og-intake.jpg{% endblock %}
+
+{% block twitter_title %}Client Intake - VA Matching Platform{% endblock %}
+
+{% block twitter_description %}Complete your client intake form to get matched with the perfect VA.{% endblock %}
+
+{% block twitter_image %}/static/images/twitter-intake.jpg{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* Form-specific styles using design tokens */
+  .form-section {
+    @apply bg-bg-primary rounded-lg shadow-sm p-6 mb-6 border border-border-primary;
+  }
+  
+  .input-field {
+    @apply w-full px-4 py-3 border border-border-primary rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-colors bg-bg-primary text-text-primary placeholder:text-text-tertiary;
+  }
+  
+  .label {
+    @apply block text-sm font-medium text-text-secondary mb-1;
+  }
+  
+  .btn-primary {
+    @apply bg-brand-primary text-text-inverse px-6 py-3 rounded-lg font-medium hover:bg-brand-primary-hover transition-colors focus:ring-2 focus:ring-brand-primary focus:ring-offset-2;
+  }
+  
+  .btn-secondary {
+    @apply bg-bg-tertiary text-text-secondary px-6 py-3 rounded-lg font-medium hover:bg-neutral-200 transition-colors focus:ring-2 focus:ring-brand-primary focus:ring-offset-2;
+  }
+  
+  .skill-tag {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-brand-primary-light text-brand-primary mr-2 mb-2;
+  }
+  
+  .skill-tag-selected {
+    @apply bg-brand-success-light text-brand-success;
+  }
+  
+  .progress-step {
+    @apply flex items-center justify-between mb-2;
+  }
+  
+  .progress-bar {
+    @apply h-2 bg-neutral-200 rounded-full overflow-hidden;
+  }
+  
+  .progress-fill {
+    @apply h-full bg-brand-primary rounded-full transition-all duration-300;
+  }
+  
+  /* Focus visible styles for accessibility */
+  .focus-visible-ring:focus-visible {
+    @apply outline-none ring-2 ring-brand-primary ring-offset-2 ring-offset-bg-primary;
+  }
+  
+  /* Checkbox styling */
+  .checkbox-custom {
+    @apply w-4 h-4 rounded border-border-secondary text-brand-primary focus:ring-2 focus:ring-brand-primary focus:ring-offset-2;
+  }
+  
+  .checkbox-custom:checked {
+    @apply bg-brand-primary border-brand-primary;
+  }
+  
+  /* Toast notification styles */
+  .toast {
+    @apply fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg text-text-inverse text-sm font-medium z-50 animate-slide-up;
+  }
+  
+  .toast-success { @apply bg-brand-success; }
+  .toast-error { @apply bg-brand-error; }
+  .toast-warning { @apply bg-brand-warning; }
+  .toast-info { @apply bg-brand-primary; }
+  
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  .animate-slide-up {
+    animation: slide-up 0.3s ease-out;
+  }
+</style>
+{% endblock %}
+
+{% block body_attributes %}data-page="intake"{% endblock %}
+
+{% block body %}
+  <div class="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8" role="main">
+    <!-- Header -->
+    <header class="text-center mb-12" role="banner">
+      <h1 class="text-4xl font-bold text-text-primary mb-4">VA Matching Platform</h1>
+      <p class="text-xl text-text-secondary">Client Intake Form - Let's find your perfect VA</p>
+    </header>
+
+    <!-- Progress Indicator -->
+    <nav aria-label="Form progress" class="mb-8" role="navigation">
+      <div class="progress-step">
+        <span class="text-sm font-medium text-text-secondary" id="progress-label">Step 1 of 5: Company Info</span>
+        <span class="text-sm font-medium text-text-secondary" id="progress-percent">20%</span>
+      </div>
+      <div class="progress-bar" role="progressbar" aria-valuenow="20" aria-valuemin="0" aria-valuemax="100" aria-label="Form completion progress">
+        <div class="progress-fill" id="progress-bar" style="width: 20%"></div>
+      </div>
+    </nav>
+
+    <!-- Form -->
+    <form id="intakeForm" class="space-y-6" novalidate aria-label="Client intake form">
+      <!-- Section 1: Company Information -->
+      <section class="form-section" aria-labelledby="company-info-heading">
+        <h2 id="company-info-heading" class="text-xl font-semibold text-text-primary mb-6">Company Information</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="company_name" class="label">Company Name <span class="text-brand-error" aria-hidden="true">*</span></label>
+            <input type="text" id="company_name" name="company_name" required autocomplete="organization"
+                class="input-field focus-visible-ring" placeholder="Acme Inc." aria-required="true" aria-describedby="company_name_help">
+            <span id="company_name_help" class="sr-only">Required field. Enter your company's legal name.</span>
+          </div>
+          <div>
+            <label for="industry" class="label">Industry <span class="text-brand-error" aria-hidden="true">*</span></label>
+            <select id="industry" name="industry" required class="input-field focus-visible-ring" aria-required="true">
+              <option value="">Select industry</option>
+              <option value="technology">Technology</option>
+              <option value="healthcare">Healthcare</option>
+              <option value="finance">Finance</option>
+              <option value="real_estate">Real Estate</option>
+              <option value="ecommerce">E-commerce</option>
+              <option value="marketing">Marketing/Advertising</option>
+              <option value="consulting">Consulting</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label for="company_size" class="label">Company Size <span class="text-brand-error" aria-hidden="true">*</span></label>
+            <input type="number" id="company_size" name="company_size" required min="1" max="10000"
+                class="input-field focus-visible-ring" placeholder="10" aria-required="true">
+          </div>
+          <div>
+            <label for="industry_other" class="label">If Other, specify</label>
+            <input type="text" id="industry_other" name="industry_other"
+                class="input-field focus-visible-ring" placeholder="Enter industry">
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Contact Information -->
+      <section class="form-section" aria-labelledby="contact-info-heading">
+        <h2 id="contact-info-heading" class="text-xl font-semibold text-text-primary mb-6">Contact Information</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="contact_name" class="label">Your Name <span class="text-brand-error" aria-hidden="true">*</span></label>
+            <input type="text" id="contact_name" name="contact_name" required autocomplete="name"
+                class="input-field focus-visible-ring" placeholder="John Doe" aria-required="true">
+          </div>
+          <div>
+            <label for="email" class="label">Email Address <span class="text-brand-error" aria-hidden="true">*</span></label>
+            <input type="email" id="email" name="email" required autocomplete="email"
+                class="input-field focus-visible-ring" placeholder="john@company.com" aria-required="true">
+          </div>
+          <div>
+            <label for="timezone" class="label">Timezone <span class="text-brand-error" aria-hidden="true">*</span></label>
+            <select id="timezone" name="timezone" required class="input-field focus-visible-ring" aria-required="true">
+              <option value="America/New_York">Eastern Time (ET)</option>
+              <option value="America/Chicago">Central Time (CT)</option>
+              <option value="America/Denver">Mountain Time (MT)</option>
+              <option value="America/Los_Angeles">Pacific Time (PT)</option>
+              <option value="Europe/London">London (GMT/BST)</option>
+              <option value="Europe/Paris">Paris (CET/CEST)</option>
+              <option value="Asia/Tokyo">Tokyo (JST)</option>
+              <option value="Asia/Singapore">Singapore (SGT)</option>
+              <option value="Australia/Sydney">Sydney (AEST/AEDT)</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: Business Requirements -->
+      <section class="form-section" aria-labelledby="business-req-heading">
+        <h2 id="business-req-heading" class="text-xl font-semibold text-text-primary mb-6">Business Requirements</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="md:col-span-2">
+            <label for="industry_detail" class="label">Industry Details</label>
+            <textarea id="industry_detail" name="industry_detail" rows="3"
+                class="input-field focus-visible-ring" placeholder="Describe your business model, target market, and key challenges..."></textarea>
+          </div>
+          <div>
+            <label for="monthly_budget" class="label">Monthly Budget for VA ($) <span class="text-brand-error" aria-hidden="true">*</span></label>
+            <input type="number" id="monthly_budget" name="monthly_budget" required min="500" step="100"
+                class="input-field focus-visible-ring" placeholder="3000" aria-required="true">
+          </div>
+          <div>
+            <label for="needed_hours_per_week" class="label">Hours Needed per Week <span class="text-brand-error" aria-hidden="true">*</span></label>
+            <input type="number" id="needed_hours_per_week" name="needed_hours_per_week" required min="1" max="80"
+                class="input-field focus-visible-ring" placeholder="20" aria-required="true">
+          </div>
+          <div>
+            <label for="preferred_timezone_overlap" class="label">Preferred Timezone Overlap (hours) <span class="text-brand-error" aria-hidden="true">*</span></label>
+            <input type="number" id="preferred_timezone_overlap" name="preferred_timezone_overlap" required min="1" max="12" value="4"
+                class="input-field focus-visible-ring" placeholder="4" aria-required="true">
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 4: Skills & Tasks -->
+      <section class="form-section" aria-labelledby="skills-heading">
+        <h2 id="skills-heading" class="text-xl font-semibold text-text-primary mb-6">Required Skills & Tasks to Delegate</h2>
+        
+        <div class="mb-6">
+          <label class="label">Required Skills <span class="text-brand-error" aria-hidden="true">*</span> (select all that apply)</label>
+          <div class="flex flex-wrap gap-2" id="skillCheckboxes" role="group" aria-labelledby="skills-heading" aria-required="true">
+            {% set skills = [
+              "Email Management", "Calendar Management", "Lead Generation", "Customer Support",
+              "Social Media Management", "Content Creation", "Project Management", "SOP Creation",
+              "Data Entry", "Research", "Appointment Setting", "CRM Management",
+              "Travel Coordination", "Expense Tracking", "Canva Design", "Shopify Management",
+              "Email Marketing", "Cold Outreach", "Notion/Asana Setup", "SOP Creation"
+            ] %}
+            {% for skill in skills %}
+            <label class="skill-tag cursor-pointer" tabindex="0">
+              <input type="checkbox" name="required_skills" value="{{ skill }}" class="checkbox-custom sr-only peer">
+              <span class="peer-checked:bg-brand-primary peer-checked:text-white">{{ skill }}</span>
+            </label>
+            {% endfor %}
+          </div>
+          <div id="selectedSkills" class="mt-3 flex flex-wrap gap-2" aria-live="polite" aria-label="Selected skills"></div>
+        </div>
+
+        <div class="mb-6">
+          <label class="label">Tasks to Delegate <span class="text-brand-error" aria-hidden="true">*</span> (describe what you want to offload)</label>
+          <textarea id="tasks_to_delegate" name="tasks_to_delegate" required rows="4"
+              class="input-field focus-visible-ring" placeholder="E.g., Email management, calendar scheduling, lead research, social media posting, customer support..." aria-required="true"></textarea>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="current_tools" class="label">Current Tools (comma-separated)</label>
+            <input type="text" id="current_tools" name="current_tools"
+                class="input-field focus-visible-ring" placeholder="Slack, Notion, HubSpot, Google Workspace, Asana">
+          </div>
+          <div>
+            <label for="max_hourly_rate" class="label">Max Hourly Rate ($) (0 = no limit)</label>
+            <input type="number" id="max_hourly_rate" name="max_hourly_rate" min="0" step="5"
+                class="input-field focus-visible-ring" placeholder="50">
+          </div>
+        </div>
+      </section>
+
+      <!-- Submit -->
+      <div class="flex justify-end space-x-4 pt-6 border-t border-border-primary">
+        <button type="button" class="btn-secondary" onclick="goBack()">Previous</button>
+        <button type="submit" class="btn-primary">Submit Intake & Find Matches</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Toast container for notifications -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2" aria-live="polite" aria-label="Notifications"></div>
+
+  {% block extra_scripts %}
+  <script>
+    // Skill checkbox handling
+    const checkboxes = document.querySelectorAll('#skillCheckboxes input[type="checkbox"]');
+    const selectedContainer = document.getElementById('selectedSkills');
+    
+    checkboxes.forEach(cb => {
+      cb.addEventListener('change', () => {
+        updateSelectedSkills();
+      });
+      
+      // Keyboard support for custom checkboxes
+      cb.parentElement.addEventListener('keydown', (e) => {
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault();
+          cb.click();
+        }
+      });
+    });
+    
+    function updateSelectedSkills() {
+      const checked = Array.from(document.querySelectorAll('#skillCheckboxes input:checked'))
+          .map(cb => cb.value);
+      selectedContainer.innerHTML = checked.map(skill => 
+          '<span class="skill-tag skill-tag-selected">' + skill + ' <button type="button" class="ml-1 focus-visible-ring" onclick="removeSkill(\'' + skill.replace(/'/g, "\\'") + '\')" aria-label="Remove ' + skill + '">✕</button></span>'
+      ).join('');
+      
+      // Announce selection change for screen readers
+      const announcement = checked.length === 0 
+        ? 'No skills selected' 
+        : checked.length + ' skill' + (checked.length === 1 ? '' : 's') + ' selected: ' + checked.join(', ');
+      announceToScreenReader(announcement);
+    }
+    
+    function removeSkill(skill) {
+      const cb = document.querySelector('#skillCheckboxes input[value="' + skill + '"]');
+      if (cb) cb.checked = false;
+      updateSelectedSkills();
+    }
+    
+    // Progress bar update
+    function updateProgress(step, total) {
+      const percent = Math.round((step / total) * 100);
+      document.getElementById('progress-bar').style.width = percent + '%';
+      document.getElementById('progress-percent').textContent = percent + '%';
+      document.getElementById('progress-label').textContent = 'Step ' + step + ' of ' + total + ': ' + getStepName(step);
+    }
+    
+    function getStepName(step) {
+      const names = {
+        1: 'Company Info',
+        2: 'Contact Info',
+        3: 'Business Requirements',
+        4: 'Skills & Tasks',
+        5: 'Review & Submit'
+      };
+      return names[step] || '';
+    }
+    
+    // Screen reader announcements
+    function announceToScreenReader(message) {
+      const announcer = document.getElementById('announcer');
+      if (announcer) {
+        announcer.textContent = '';
+        announcer.textContent = message;
+      }
+    }
+    
+    // Toast notifications
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast toast-' + type + ' animate-slide-up';
+      toast.setAttribute('role', 'alert');
+      toast.setAttribute('aria-live', 'assertive');
+      toast.textContent = message;
+      
+      container.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.style.animation = 'slide-up 0.3s ease-out reverse';
+        setTimeout(() => toast.remove(), 300);
+      }, 5000);
+    }
+    
+    // Form validation and submission
+    document.getElementById('intakeForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData);
+      data.required_skills = Array.from(document.querySelectorAll('#skillCheckboxes input:checked')).map(cb => cb.value);
+      
+      // Validation
+      if (!data.required_skills || data.required_skills.length === 0) {
+        showToast('Please select at least one required skill', 'error');
+        announceToScreenReader('Error: Please select at least one required skill');
+        return;
+      }
+      
+      // Submit
+      try {
+        const response = await fetch('/api/clients', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          showToast('Success! Client ID: ' + result.client_id, 'success');
+          announceToScreenReader('Success! Client created with ID: ' + result.client_id);
+          window.location.href = '/dashboard/client/' + result.client_id;
+        } else {
+          const error = await response.json();
+          showToast('Error: ' + error.detail, 'error');
+          announceToScreenReader('Error: ' + error.detail);
+        }
+      } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+        announceToScreenReader('Error: ' + err.message);
+      }
+    });
+    
+    // Initialize progress
+    updateProgress(1, 5);
+  </script>
+{% endblock %}
+{% endblock %}

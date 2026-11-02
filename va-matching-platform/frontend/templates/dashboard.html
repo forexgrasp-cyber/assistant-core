@@ -1,0 +1,462 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - VA Matching Platform{% endblock %}
+
+{% block meta_description %}Manage your VA matches, clients, billing, and view analytics on the VA Matching Platform dashboard.{% endblock %}
+
+{% block meta_keywords %}dashboard, virtual assistant, VA management, client management, billing, analytics{% endblock %}
+
+{% block og_title %}Dashboard - VA Matching Platform{% endblock %}
+
+{% block og_description %}Manage your VA matches, clients, billing, and view analytics on the VA Matching Platform dashboard.{% endblock %}
+
+{% block og_image %}/static/images/og-dashboard.jpg{% endblock %}
+
+{% block twitter_title %}Dashboard - VA Matching Platform{% endblock %}
+
+{% block twitter_description %}Manage your VA matches, clients, and billing.{% endblock %}
+
+{% block twitter_image %}/static/images/twitter-dashboard.jpg{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* Dashboard-specific styles using design tokens */
+  .sidebar {
+    @apply w-64 bg-neutral-900 text-white min-h-screen fixed inset-y-0 left-0 z-[var(--z-index-fixed)];
+  }
+  
+  .main-content {
+    @apply ml-64 min-h-screen bg-bg-secondary;
+  }
+  
+  .nav-link {
+    @apply flex items-center px-4 py-3 text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors rounded-lg mx-2 focus-visible-ring;
+  }
+  
+  .nav-link.active {
+    @apply bg-brand-primary text-white;
+  }
+  
+  .stat-card {
+    @apply bg-bg-primary rounded-lg shadow-sm p-6 border border-border-primary;
+  }
+  
+  .table-container {
+    @apply bg-bg-primary rounded-lg shadow-sm border border-border-primary overflow-hidden;
+  }
+  
+  .table-header {
+    @apply bg-neutral-50 border-b border-border-primary;
+  }
+  
+  .table-row {
+    @apply border-b border-border-primary hover:bg-neutral-50 transition-colors;
+  }
+  
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  
+  .badge-green { @apply bg-brand-success-light text-brand-success; }
+  .badge-blue { @apply bg-brand-primary-light text-brand-primary; }
+  .badge-yellow { @apply bg-brand-warning-light text-brand-warning; }
+  .badge-red { @apply bg-brand-error-light text-brand-error; }
+  .badge-gray { @apply bg-neutral-100 text-neutral-800; }
+  
+  /* Chart containers */
+  .chart-container {
+    @apply bg-bg-primary rounded-lg shadow-sm border border-border-primary p-4;
+  }
+  
+  .chart-header {
+    @apply flex items-center justify-between mb-4;
+  }
+  
+  .chart-title {
+    @apply text-lg font-semibold text-text-primary;
+  }
+  
+  /* Quick action cards */
+  .action-card {
+    @apply stat-card hover:shadow-md transition-shadow cursor-pointer;
+  }
+  
+  /* Responsive table */
+  .table-responsive {
+    @apply overflow-x-auto;
+  }
+  
+  /* Skip link for sidebar navigation */
+  .skip-to-sidebar {
+    @apply sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-brand-primary focus:text-white;
+  }
+</style>
+{% endblock %}
+
+{% block body_attributes %}data-page="dashboard"{% endblock %}
+
+{% block body %}
+  <a href="#main-content" class="skip-to-sidebar">Skip to main content</a>
+  <a href="#sidebar" class="skip-to-sidebar">Skip to navigation</a>
+  
+  <div class="flex min-h-screen" role="application">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" role="navigation" aria-label="Main navigation" id="sidebar">
+      <div class="p-6 border-b border-neutral-800">
+        <h1 class="text-2xl font-bold">VA Platform</h1>
+        <p class="text-neutral-400 text-sm mt-1">Admin Dashboard</p>
+      </div>
+      <nav class="p-4 space-y-1" aria-label="Dashboard sections">
+        <a href="/dashboard" class="nav-link active" aria-current="page">
+          <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 011-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+          </svg>
+          Dashboard
+        </a>
+        <a href="/dashboard/clients" class="nav-link">
+          <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+          </svg>
+          Clients
+        </a>
+        <a href="/dashboard/vas" class="nav-link">
+          <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+          </svg>
+          VAs
+        </a>
+        <a href="/dashboard/matches" class="nav-link">
+          <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6a2 2 0 114 0 2 2 0 01-4 0zm-2 5a2 2 0 114 0 2 2 0 01-4 0zm-2 5a2 2 0 114 0 2 2 0 01-4 0zm14-5a2 2 0 114 0 2 2 0 01-4 0zm-2 5a2 2 0 114 0 2 2 0 01-4 0zm-2 5a2 2 0 114 0 2 2 0 01-4 0z"></path>
+          </svg>
+          Matches
+        </a>
+        <a href="/dashboard/billing" class="nav-link">
+          <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.105 0 2.049.602 2.499 1.5H18a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2v-8a2 2 0 012-2h5.501c-.45-.898-.699-1.5-1.5-1.5z"></path>
+          </svg>
+          Billing
+        </a>
+        <a href="/dashboard/reports" class="nav-link">
+          <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+          </svg>
+          Reports
+        </a>
+        <a href="/admin/settings" class="nav-link">
+          <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+          Settings
+        </a>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content" role="main" id="main-content" aria-label="Dashboard content">
+      <!-- Top Bar -->
+      <header class="bg-bg-primary shadow-sm border-b border-border-primary sticky top-0 z-[var(--z-index-sticky)]" role="banner">
+        <div class="flex items-center justify-between px-6 py-4">
+          <h1 class="text-2xl font-bold text-text-primary">Dashboard</h1>
+          <div class="flex items-center space-x-4">
+            <div class="hidden sm:block text-text-secondary">Admin User</div>
+            <div class="w-8 h-8 bg-brand-primary rounded-full flex items-center justify-center text-text-inverse font-medium" aria-label="User avatar">
+              A
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Content Area -->
+      <div class="p-6">
+        <!-- Stats Grid -->
+        <section aria-labelledby="stats-heading" class="mb-8">
+          <h2 id="stats-heading" class="sr-only">Key Metrics</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" role="list">
+            <article class="stat-card" role="listitem">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm font-medium text-text-secondary">Total Clients</p>
+                  <p class="text-3xl font-bold text-text-primary mt-1" id="total-clients">12</p>
+                </div>
+                <div class="w-12 h-12 bg-brand-primary-light rounded-lg flex items-center justify-center" aria-hidden="true">
+                  <svg class="w-6 h-6 text-brand-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                  </svg>
+                </div>
+              </div>
+            </article>
+
+            <article class="stat-card" role="listitem">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm font-medium text-text-secondary">Active VAs</p>
+                  <p class="text-3xl font-bold text-text-primary mt-1" id="active-vas">8</p>
+                </div>
+                <div class="w-12 h-12 bg-brand-success-light rounded-lg flex items-center justify-center" aria-hidden="true">
+                  <svg class="w-6 h-6 text-brand-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                  </svg>
+                </div>
+              </div>
+            </article>
+
+            <article class="stat-card" role="listitem">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm font-medium text-text-secondary">Active Matches</p>
+                  <p class="text-3xl font-bold text-text-primary mt-1" id="active-matches">5</p>
+                </div>
+                <div class="w-12 h-12 bg-brand-secondary-light rounded-lg flex items-center justify-center" aria-hidden="true">
+                  <svg class="w-6 h-6 text-brand-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6a2 2 0 114 0 2 2 0 01-4 0zm-2 5a2 2 0 114 0 2 2 0 01-4 0zm-2 5a2 2 0 114 0 2 2 0 01-4 0zm14-5a2 2 0 114 0 2 2 0 01-4 0zm-2 5a2 2 0 114 0 2 2 0 01-4 0zm-2 5a2 2 0 114 0 2 2 0 01-4 0z"></path>
+                  </svg>
+                </div>
+              </div>
+            </article>
+
+            <article class="stat-card" role="listitem">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm font-medium text-text-secondary">Monthly Revenue</p>
+                  <p class="text-3xl font-bold text-text-primary mt-1" id="monthly-revenue">$14,200</p>
+                </div>
+                <div class="w-12 h-12 bg-brand-warning-light rounded-lg flex items-center justify-center" aria-hidden="true">
+                  <svg class="w-6 h-6 text-brand-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.105 0 2.049.602 2.499 1.5H18a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2v-8a2 2 0 012-2h5.501c-.45-.898-.699-1.5-1.5-1.5z"></path>
+                  </svg>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <!-- Charts Row -->
+        <section aria-labelledby="charts-heading" class="mb-8">
+          <h2 id="charts-heading" class="sr-only">Analytics Charts</h2>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" role="list">
+            <article class="chart-container" role="listitem">
+              <header class="chart-header">
+                <h3 class="chart-title">Monthly Revenue Trend</h3>
+                <span class="text-sm text-text-secondary">Last 7 months</span>
+              </header>
+              <div class="h-64" role="img" aria-label="Monthly revenue line chart showing growth from $8,200 to $14,200 over 7 months">
+                <canvas id="revenueChart" aria-label="Revenue chart"></canvas>
+              </div>
+            </article>
+
+            <article class="chart-container" role="listitem">
+              <header class="chart-header">
+                <h3 class="chart-title">Match Funnel</h3>
+                <span class="text-sm text-text-secondary">Current pipeline status</span>
+              </header>
+              <div class="h-64" role="img" aria-label="Match funnel horizontal bar chart showing Leads 45, Qualified 28, Matched 15, Onboarded 10, Active 8">
+                <canvas id="funnelChart" aria-label="Funnel chart"></canvas>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <!-- Recent Matches Table -->
+        <section aria-labelledby="matches-heading" class="mb-8">
+          <header class="flex items-center justify-between mb-4">
+            <h2 id="matches-heading" class="text-lg font-semibold text-text-primary">Recent Matches</h2>
+            <a href="/dashboard/matches" class="text-sm font-medium text-brand-primary hover:text-brand-primary-hover">View All</a>
+          </header>
+          <div class="table-container" role="region" aria-label="Recent matches table" tabindex="0">
+            <div class="overflow-x-auto">
+              <table class="w-full" role="table">
+                <thead>
+                  <tr class="table-header">
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-tertiary uppercase tracking-wider">Match ID</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-tertiary uppercase tracking-wider">Client</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-tertiary uppercase tracking-wider">VA</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-tertiary uppercase tracking-wider">Score</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-tertiary uppercase tracking-wider">Status</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-tertiary uppercase tracking-wider">Placement Fee</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-tertiary uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-border-primary" role="rowgroup">
+                  <tr class="table-row" role="row">
+                    <td class="px-4 py-4 text-sm font-medium text-text-primary">#M-001</td>
+                    <td class="px-4 py-4 text-sm text-text-secondary">Acme Corp</td>
+                    <td class="px-4 py-4 text-sm text-text-secondary">Sarah Johnson</td>
+                    <td class="px-4 py-4 text-sm font-medium text-text-primary">92%</td>
+                    <td class="px-4 py-4"><span class="badge badge-green" role="status">Active</span></td>
+                    <td class="px-4 py-4 text-sm text-text-secondary">$2,500</td>
+                    <td class="px-4 py-4"><button class="text-brand-primary hover:text-brand-primary-hover text-sm font-medium focus-visible-ring">View</button></td>
+                  </tr>
+                  <tr class="table-row" role="row">
+                    <td class="px-4 py-4 text-sm font-medium text-text-primary">#M-002</td>
+                    <td class="px-4 py-4 text-sm text-text-secondary">TechStart Inc</td>
+                    <td class="px-4 py-4 text-sm text-text-secondary">Marcus Chen</td>
+                    <td class="px-4 py-4 text-sm font-medium text-text-primary">87%</td>
+                    <td class="px-4 py-4"><span class="badge badge-green" role="status">Active</span></td>
+                    <td class="px-4 py-4 text-sm text-text-secondary">$3,000</td>
+                    <td class="px-4 py-4"><button class="text-brand-primary hover:text-brand-primary-hover text-sm font-medium focus-visible-ring">View</button></td>
+                  </tr>
+                  <tr class="table-row" role="row">
+                    <td class="px-4 py-4 text-sm font-medium text-text-primary">#M-003</td>
+                    <td class="px-4 py-4 text-sm text-text-secondary">HealthPlus</td>
+                    <td class="px-4 py-4 text-sm text-text-secondary">Priya Sharma</td>
+                    <td class="px-4 py-4 text-sm font-medium text-text-primary">89%</td>
+                    <td class="px-4 py-4"><span class="badge badge-yellow" role="status">Onboarding</span></td>
+                    <td class="px-4 py-4 text-sm text-text-secondary">$2,000</td>
+                    <td class="px-4 py-4"><button class="text-brand-primary hover:text-brand-primary-hover text-sm font-medium focus-visible-ring">View</button></td>
+                  </tr>
+                  <tr class="table-row" role="row">
+                    <td class="px-4 py-4 text-sm font-medium text-text-primary">#M-004</td>
+                    <td class="px-4 py-4 text-sm text-text-secondary">FinanceFlow</td>
+                    <td class="px-4 py-4 text-sm text-text-secondary">Alexandra Volkov</td>
+                    <td class="px-4 py-4 text-sm font-medium text-text-primary">95%</td>
+                    <td class="px-4 py-4"><span class="badge badge-green" role="status">Active</span></td>
+                    <td class="px-4 py-4 text-sm text-text-secondary">$5,000</td>
+                    <td class="px-4 py-4"><button class="text-brand-primary hover:text-brand-primary-hover text-sm font-medium focus-visible-ring">View</button></td>
+                  </tr>
+                  <tr class="table-row" role="row">
+                    <td class="px-4 py-4 text-sm font-medium text-text-primary">#M-005</td>
+                    <td class="px-4 py-4 text-sm text-text-secondary">EcoBrand</td>
+                    <td class="px-4 py-4 text-sm text-text-secondary">Carlos Rodriguez</td>
+                    <td class="px-4 py-4 text-sm font-medium text-text-primary">78%</td>
+                    <td class="px-4 py-4"><span class="badge badge-red" role="status">Rejected</span></td>
+                    <td class="px-4 py-4 text-sm text-text-secondary">$0</td>
+                    <td class="px-4 py-4"><button class="text-brand-primary hover:text-brand-primary-hover text-sm font-medium focus-visible-ring">View</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Quick Actions -->
+        <section aria-labelledby="actions-heading" class="mb-8">
+          <h2 id="actions-heading" class="sr-only">Quick Actions</h2>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6" role="list">
+            <article class="action-card" role="listitem">
+              <a href="/intake" class="flex items-center p-4">
+                <div class="w-12 h-12 bg-brand-success-light rounded-lg flex items-center justify-center" aria-hidden="true">
+                  <svg class="w-6 h-6 text-brand-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                  </svg>
+                </div>
+                <div class="ml-4">
+                  <p class="text-sm font-medium text-text-secondary">New Client Intake</p>
+                  <p class="text-lg font-bold text-text-primary">Add Client</p>
+                </div>
+              </a>
+            </article>
+
+            <article class="action-card" role="listitem">
+              <a href="/dashboard/vas" class="flex items-center p-4">
+                <div class="w-12 h-12 bg-brand-secondary-light rounded-lg flex items-center justify-center" aria-hidden="true">
+                  <svg class="w-6 h-6 text-brand-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v6m0-3h3m-3-3h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1a6 6 0 0012 0v1H3v-1z"></path>
+                  </svg>
+                </div>
+                <div class="ml-4">
+                  <p class="text-sm font-medium text-text-secondary">VA Pool</p>
+                  <p class="text-lg font-bold text-text-primary">View VAs</p>
+                </div>
+              </a>
+            </article>
+
+            <article class="action-card" role="listitem">
+              <a href="/intake" class="flex items-center p-4">
+                <div class="w-12 h-12 bg-brand-warning-light rounded-lg flex items-center justify-center" aria-hidden="true">
+                  <svg class="w-6 h-6 text-brand-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                  </svg>
+                </div>
+                <div class="ml-4">
+                  <p class="text-sm font-medium text-text-secondary">New Intake</p>
+                  <p class="text-lg font-bold text-text-primary">Start Intake</p>
+                </div>
+              </a>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2" aria-live="polite" aria-label="Notifications"></div>
+
+  {% block extra_scripts %}
+  <script>
+    // Revenue Chart
+    const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+    new Chart(revenueCtx, {
+      type: 'line',
+      data: {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
+        datasets: [{
+          label: 'Revenue ($)',
+          data: [8200, 9100, 10500, 11200, 12800, 13500, 14200],
+          borderColor: 'var(--color-brand-primary)',
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          tension: 0.3,
+          fill: true,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { 
+            beginAtZero: false, 
+            ticks: { callback: v => '$' + v.toLocaleString() },
+            grid: { color: 'var(--color-border-primary)' }
+          },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+
+    // Funnel Chart
+    const funnelCtx = document.getElementById('funnelChart').getContext('2d');
+    new Chart(funnelCtx, {
+      type: 'bar',
+      data: {
+        labels: ['Leads', 'Qualified', 'Matched', 'Onboarded', 'Active'],
+        datasets: [{
+          label: 'Count',
+          data: [45, 28, 15, 10, 8],
+          backgroundColor: [
+            'var(--color-brand-primary)',
+            'var(--color-brand-secondary)',
+            'var(--color-brand-success)',
+            'var(--color-brand-warning)',
+            'var(--color-brand-error)'
+          ],
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: { legend: { display: false } },
+        scales: { 
+          x: { 
+            beginAtZero: true,
+            grid: { color: 'var(--color-border-primary)' }
+          },
+          y: { grid: { display: false } }
+        }
+      }
+    });
+
+    // Global error handler
+    window.addEventListener('error', (e) => {
+      console.error('Global error:', e.error);
+    });
+
+    window.addEventListener('unhandledrejection', (e) => {
+      console.error('Unhandled rejection:', e.reason);
+    });
+  </script>
+{% endblock %}
+{% endblock %}
