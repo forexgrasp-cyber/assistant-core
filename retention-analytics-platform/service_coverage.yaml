@@ -1,0 +1,445 @@
+# Service coverage declaration — retention-analytics-platform
+# Required by PRODUCTION_STANDARDS.md §14.2
+# Integration levels: L0=absent, L1=imported unused, L2=instantiated uncalled,
+# L3=called from production code, L4=reachable from entry point + workflow step,
+# L5=covered by end-to-end test or executed live run whose output was inspected.
+# Targets: Tier 0/1/2 -> L4; Tier 3 -> L3 (PRODUCTION_STANDARDS.md §14.1).
+
+services:
+  # Tier 0 — Platform core (required for every nature)
+  - service: service_registry
+    tier: 0
+    applicability: required
+    reason: Every service registers actions here; workflows invoke via registry (anti-silo)
+    integration_level: L4
+    evidence:
+      - packages/retention_analytics_core/service_registry.py:1
+      - apps/api/main.py:57
+    workflow: all
+
+  - service: workflow_engine
+    tier: 0
+    applicability: required
+    reason: Durable pipelines compose service actions as ordered steps
+    integration_level: L4
+    evidence:
+      - packages/retention_analytics_core/workflows/engine.py:1
+      - apps/api/main.py:58
+    workflow: churn-prevention, cart-abandonment, subscription-win-back
+
+  - service: config_service
+    tier: 0
+    applicability: required
+    reason: PlatformSettings layered config
+    integration_level: L2
+    evidence:
+      - packages/shared-config/__init__.py:1
+    workflow: none
+    gap: Not layered (defaults→file→env→runtime→per-tenant override); no per-tenant override
+
+  - service: secrets_manager
+    tier: 0
+    applicability: required
+    reason: JWT secret and provider keys must come from secret manager
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: Hardcoded dev-secret-change-me default in auth.py
+
+  - service: database_service
+    tier: 0
+    applicability: required
+    reason: SQLAlchemy models + Alembic defined; must be wired into EntityKernel
+    integration_level: L2
+    evidence:
+      - packages/retention_analytics_core/database.py:1
+      - packages/retention_analytics_core/models.py:1
+    workflow: none
+    gap: EntityKernel is in-memory; SQLAlchemy not connected
+
+  - service: repositories
+    tier: 0
+    applicability: required
+    reason: Canonical data access layer
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No canonical repository layer; ad-hoc in-memory kernel
+
+  - service: async_db_pool
+    tier: 0
+    applicability: required
+    reason: Async connection pool for PostgreSQL
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No connection pool configured
+
+  - service: structured_logging
+    tier: 0
+    applicability: required
+    reason: Structured logs with correlation ID
+    integration_level: L3
+    evidence:
+      - packages/retention_analytics_engagement/base.py:5 (structlog)
+    workflow: all
+    gap: Not canonical shared/observability; no correlation ID propagation
+
+  - service: metrics_collection
+    tier: 0
+    applicability: required
+    reason: Counters/gauges/histograms per route and job
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No metrics emitted
+
+  - service: health_readiness
+    tier: 0
+    applicability: required
+    reason: /health (liveness) and /health/ready (readiness)
+    integration_level: L3
+    evidence:
+      - apps/api/main.py (GET /health)
+    workflow: none
+    gap: No /health/ready; no dependency readiness probes
+
+  - service: rate_limiting
+    tier: 0
+    applicability: required
+    reason: App + IP + sliding window rate limits
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No rate limiting configured
+
+  - service: resilience_retry_circuit_breaker
+    tier: 0
+    applicability: required
+    reason: Retry with backoff; circuit breaker for persistent failures
+    integration_level: L2
+    evidence:
+      - pyproject.toml (tenacity dependency)
+    workflow: none
+    gap: tenacity declared but not integrated into service calls
+
+  - service: resilient_http_client
+    tier: 0
+    applicability: required
+    reason: Mandatory timeout + retry for external calls
+    integration_level: L2
+    evidence:
+      - pyproject.toml (httpx dependency)
+    workflow: none
+    gap: httpx declared but not canonical resilient client; no timeout/retry
+
+  - service: idempotency_ledger
+    tier: 0
+    applicability: required
+    reason: Event/webhook idempotency
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No idempotency on events/webhooks
+
+  - service: audit_log
+    tier: 0
+    applicability: required
+    reason: Immutable, hash-chained audit trail
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No audit trail
+
+  - service: service_registry_canonical
+    tier: 0
+    applicability: required
+    reason: Canonical shared/infrastructure/registry.py
+    integration_level: L2
+    evidence:
+      - packages/retention_analytics_core/service_registry.py:1
+    workflow: none
+    gap: Local registry re-implements canonical; not consuming shared/
+
+  - service: unified_services_catalog
+    tier: 0
+    applicability: required
+    reason: Service discovery
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: Not integrated
+
+  - service: background_jobs
+    tier: 0
+    applicability: required
+    reason: Durable job store, retry, DLQ, heartbeat
+    integration_level: L3
+    evidence:
+      - apps/workers/celery_app.py
+      - apps/workers/tasks.py
+    workflow: workflows.run, events.ingest, reports.generate
+    gap: Not canonical shared/async_jobs; no DLQ, no heartbeat, no idempotency
+
+  - service: event_bus_pipeline_events
+    tier: 0
+    applicability: required
+    reason: Events → workflows trigger
+    integration_level: L2
+    evidence:
+      - packages/retention_analytics_engagement/flows/triggers.py:1
+    workflow: churn-prevention, cart-abandonment, subscription-win-back
+    gap: Not canonical event bus; local FlowTriggerService
+
+  - service: api_app_factory
+    tier: 0
+    applicability: required
+    reason: Single app assembly entry point
+    integration_level: L3
+    evidence:
+      - apps/api/main.py:212 (FastAPI app inline)
+    workflow: none
+    gap: Not using shared.webapp.factory.create_app
+
+  - service: feature_flags
+    tier: 0
+    applicability: required
+    reason: Feature flags / experiments
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No feature flags
+
+  - service: quota_manager_enforcer
+    tier: 0
+    applicability: required
+    reason: Quota enforcement
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No quota enforcement
+
+  # Tier 1 — Product core (saas_vertical)
+  - service: authentication
+    tier: 1
+    applicability: required
+    reason: JWT + session auth
+    integration_level: L3
+    evidence:
+      - packages/retention_analytics_core/auth.py:1
+    workflow: none
+    gap: Not canonical shared/auth; dev-mode accepts any token; no JWT validation
+
+  - service: authorization_rbac
+    tier: 1
+    applicability: required
+    reason: Role/scope based authorization enforced at API boundary
+    integration_level: L3
+    evidence:
+      - packages/retention_analytics_core/auth.py (require_permission)
+      - apps/api/main.py (6 mutating endpoints)
+    workflow: none
+    gap: Not canonical rbac_service; no org/team RBAC
+
+  - service: sessions_refresh
+    tier: 1
+    applicability: required
+    reason: Sessions / refresh tokens
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No sessions
+
+  - service: user_profile
+    tier: 1
+    applicability: required
+    reason: User profile service
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No profile service
+
+  - service: email_transactional
+    tier: 1
+    applicability: required
+    reason: Persist-then-flush email delivery
+    integration_level: L3
+    evidence:
+      - packages/retention_analytics_engagement/email/service.py:1
+    workflow: churn-prevention, cart-abandonment, win-back
+    gap: Not canonical email_outbox; no persist-then-flush outbox
+
+  - service: notifications_dispatch
+    tier: 1
+    applicability: required
+    reason: Notifications dispatch
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No notification dispatch
+
+  - service: webhooks_out
+    tier: 1
+    applicability: required
+    reason: Outbound webhooks with DLQ
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No outbound webhooks
+
+  - service: multi_tenancy
+    tier: 1
+    applicability: required
+    reason: Tenant context/isolation on every query
+    integration_level: L2
+    evidence:
+      - apps/api/main.py:81 (DEFAULT_TENANT constant)
+    workflow: all
+    gap: No tenant context; no cross-tenant prevention (data-leak defect)
+
+  - service: request_logging_correlation
+    tier: 1
+    applicability: required
+    reason: Correlation ID middleware
+    integration_level: L2
+    evidence:
+      - packages/retention_analytics_engagement/base.py (structlog inline)
+    workflow: all
+    gap: No correlation ID middleware; not canonical
+
+  - service: subscriptions_tiering
+    tier: 1
+    applicability: required
+    reason: Subscription lifecycle + tiering
+    integration_level: L3
+    evidence:
+      - packages/retention_analytics_ecommerce/subscriptions/service.py:1
+    workflow: subscription-win-back
+    gap: Not canonical billing; no tiering, no Stripe integration
+
+  - service: payments_provider_agnostic
+    tier: 1
+    applicability: required
+    reason: Provider-agnostic payments registry; must NOT import stripe directly
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: stripe in deps but unused; no provider registry
+
+  - service: webhook_payment_handling
+    tier: 1
+    applicability: required
+    reason: Signature-verified payment webhooks, idempotent
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No payment webhook handling
+
+  - service: entitlements_feature_gates
+    tier: 1
+    applicability: required
+    reason: Entitlement enforcement at API boundary
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No entitlement enforcement
+
+  - service: quotas_usage_metering
+    tier: 1
+    applicability: required
+    reason: Usage metering reconciled against provider ledger
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No metering
+
+  - service: organizations_invitations
+    tier: 1
+    applicability: required
+    reason: Organizations / invitations
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No org/invitation model
+
+  - service: support_ticketing
+    tier: 1
+    applicability: required
+    reason: Support / ticketing
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No support
+
+  - service: saved_reports
+    tier: 1
+    applicability: required
+    reason: Per-user saved reports
+    integration_level: L2
+    evidence:
+      - packages/retention_analytics_reporting_engine/report_service.py:1
+    workflow: reports.generate
+    gap: Not canonical saved_reports; no per-user ownership
+
+  - service: product_feedback_nps
+    tier: 1
+    applicability: required
+    reason: Product feedback / NPS
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No feedback
+
+  # Tier 2 — Growth & quality
+  - service: seo_i18n_analytics
+    tier: 2
+    applicability: required
+    reason: SEO, i18n, analytics
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No SEO, i18n, or analytics
+
+  - service: ui_kit_design_tokens
+    tier: 2
+    applicability: required
+    reason: Canonical design tokens + components
+    integration_level: L2
+    evidence:
+      - apps/web-customer/app/globals.css (Tailwind inline)
+    workflow: none
+    gap: Not canonical shared/ui_components or shared/design
+
+  - service: monetization
+    tier: 2
+    applicability: required
+    reason: Monetization paths with viability verdicts
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No monetization path
+
+  - service: email_marketing
+    tier: 2
+    applicability: required
+    reason: Newsletter / nurture campaigns
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No email marketing
+
+  - service: lead_capture
+    tier: 2
+    applicability: required
+    reason: Lead capture
+    integration_level: L0
+    evidence: none
+    workflow: none
+    gap: No lead capture
+
+# Undeclared capabilities (used but not in matrix)
+undeclared_capabilities:
+  - service: stripe
+    reason: Declared as dependency but unused; must not be imported directly per PRODUCTION_STANDARDS.md L5.3
+  - service: tenacity
+    reason: Declared as dependency but unused

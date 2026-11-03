@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "retention-analytics-analytics-core"
+version = "0.1.0"
+description = "Analytics core: metric registry, cohort analysis, SQLMesh models"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.7.0",
+    "clickhouse-connect>=0.7.0",
+    "sqlmesh>=0.147.0",
+    "structlog>=24.1.0",
+    "retention-analytics-shared-config",
+    "retention-analytics-shared-types",
+    "retention-analytics-core",
+]
+
+[tool.setuptools]
+package-dir = { "retention_analytics_analytics_core" = "." }
+packages = ["retention_analytics_analytics_core"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+select = ["E", "F", "I", "W", "UP", "B", "C4"]
+ignore = ["E501", "B008"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+asyncio_mode = "auto"

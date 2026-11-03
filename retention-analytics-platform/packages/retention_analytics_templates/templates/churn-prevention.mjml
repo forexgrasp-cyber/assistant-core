@@ -1,0 +1,13 @@
+<mjml>
+  <mj-body>
+    <mj-section>
+      <mj-column>
+        <mj-text font-size="24" font-weight="bold">Your account needs attention, {{first_name}}.</mj-text>
+        <mj-text font-size="14" color="#666">
+          Your subscription is at risk of cancellation. Reactivate now to keep access to {{brand_name}}.
+        </mj-text>
+        <mj-button href="{{reactivate_url}}" background-color="#dc2626" color="white">Reactivate Account</mj-button>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

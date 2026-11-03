@@ -1,0 +1,350 @@
+# Workflows declaration — retention-analytics-platform
+# Required by PRODUCTION_STANDARDS.md §14.2 and §13
+# Each workflow must have a proof line (end-to-end test or executed live run).
+
+workflows:
+  - name: churn-prevention
+    id: churn-prevention
+    tenant_id: 00000000-0000-0000-0000-000000000001
+    trigger:
+      type: event
+      event_type: client.churn_risk
+    steps:
+      - id: compute_churn
+        service: analytics.metric
+        action: compute_retention
+        input: {tenant_id: 00000000-0000-0000-0000-000000000001}
+      - id: send_email
+        service: email
+        action: send
+        input: {to: "{{event.client_email}}", subject: "We miss you — come back", body: "Here's 20% off your next month."}
+        depends_on: [compute_churn]
+      - id: send_sms
+        service: sms
+        action: send
+        input: {to: "{{event.client_phone}}", body: "We miss you! 20% off."}
+        depends_on: [compute_churn]
+    state_machine: queued → running → completed | failed (persisted per step)
+    side_effects:
+      - email.send (external)
+      - sms.send (external)
+    failure_handling:
+      retry: 0
+      on_error: continue (step continues; run marked failed if halt)
+    money_impact: none
+    observability: correlation ID from event; structlog step logs
+    proof: tests/test_integration.py::test_event_triggers_workflow
+
+  - name: cart-abandonment
+    id: cart-abandonment
+    tenant_id: 00000000-0000-0000-0000-000000000001
+    trigger:
+      type: event
+      event_type: order.abandoned_cart
+    steps:
+      - id: recover_cart
+        service: ecommerce.core
+        action: recover_cart
+        input: {cart_id: "{{event.cart_id}}", discount: 0.1}
+      - id: send_recovery_email
+        service: email
+        action: send
+        input: {to: "{{event.customer_email}}", subject: "Complete your purchase", body: "You left items in your cart — here's 10% off."}
+        depends_on: [recover_cart]
+      - id: send_recovery_sms
+        service: sms
+        action: send
+        input: {to: "{{event.customer_phone}}", body: "Complete your cart — 10% off inside."}
+        depends_on: [recover_cart]
+    state_machine: queued → running → completed | failed (persisted per step)
+    side_effects:
+      - ecommerce.core.recover_cart (mutation)
+      - email.send (external)
+      - sms.send (external)
+    failure_handling:
+      retry: 0
+      on_error: continue
+    money_impact: recovery offer (discount) — entitlement/fulfillment not yet persisted
+    observability: correlation ID from event; structlog step logs
+    proof: tests/test_integration.py::test_workflow_invokes_service_actions_as_pipeline_steps
+
+  - name: subscription-win-back
+    id: subscription-win-back
+    tenant_id: 00000000-0000-0000-0000-000000000001
+    trigger:
+      type: event
+      event_type: subscription.cancelled
+    steps:
+      - id: dunning
+        service: subscriptions
+        action: dunning
+        input: {subscription_id: "{{event.subscription_id}}", customer_email: "{{event.customer_email}}"}
+      - id: send_winback_email
+        service: email
+        action: send
+        input: {to: "{{event.customer_email}}", subject: "We'd love to have you back", body: "Your subscription is paused — reactivate today."}
+        depends_on: [dunning]
+    state_machine: queued → running → completed | failed (persisted per step)
+    side_effects:
+      - subscriptions.dunning (mutation)
+      - email.send (external)
+    failure_handling:
+      retry: 0
+      on_error: continue
+    money_impact: win-back offer — entitlement reactivation not yet persisted
+    observability: correlation ID from event; structlog step logs
+    proof: none (workflow registered but no end-state persistence test)
+
+  # Vertical pack workflows
+  - name: marketing.lead-nurture
+    id: marketing.lead-nurture
+    tenant_id: 00000000-0000-0000-0000-000000000001
+    trigger:
+      type: event
+      event_type: client.created
+    steps:
+      - id: send_welcome_email
+        service: email
+        action: send
+        input: {to: "{{event.client_email}}", subject: "Welcome", body: "Thanks for joining."}
+      - id: score_lead
+        service: analytics.metric
+        action: compute_roster
+        input: {tenant_id: 00000000-0000-0000-0000-000000000001}
+        depends_on: [send_welcome_email]
+    state_machine: queued → running → completed | failed
+    side_effects:
+      - email.send (external)
+    failure_handling:
+      retry: 0
+      on_error: continue
+    money_impact: none
+    observability: correlation ID from event; structlog step logs
+    proof: none
+
+  - name: marketing.campaign-win-back
+    id: marketing.campaign-win-back
+    tenant_id: 00000000-0000-0000-0000-000000000001
+    trigger:
+      type: event
+      event_type: client.churn_risk
+    steps:
+      - id: send_winback_email
+        service: email
+        action: send
+        input: {to: "{{event.client_email}}", subject: "We miss you", body: "Come back for 20% off your next purchase."}
+      - id: send_winback_sms
+        service: sms
+        action: send
+        input: {to: "{{event.client_phone}}", body: "We miss you! 20% off your next purchase."}
+        depends_on: [send_winback_email]
+    state_machine: queued → running → completed | failed
+    side_effects:
+      - email.send (external)
+      - sms.send (external)
+    failure_handling:
+      retry: 0
+      on_error: continue
+    money_impact: win-back offer (20% off) — not persisted
+    observability: correlation ID from event; structlog step logs
+    proof: none
+
+  - name: ecommerce.cart-abandonment
+    id: ecommerce.cart-abandonment
+    tenant_id: 00000000-0000-0000-0000-000000000001
+    trigger:
+      type: event
+      event_type: order.abandoned_cart
+    steps:
+      - id: recover_cart
+        service: ecommerce.core
+        action: recover_cart
+        input: {cart_id: "{{event.cart_id}}", discount: 0.1}
+      - id: send_recovery_email
+        service: email
+        action: send
+        input: {to: "{{event.customer_email}}", subject: "Complete your purchase", body: "You left items in your cart — here's 10% off."}
+        depends_on: [recover_cart]
+      - id: send_recovery_sms
+        service: sms
+        action: send
+        input: {to: "{{event.customer_phone}}", body: "Complete your cart — 10% off inside."}
+        depends_on: [recover_cart]
+    state_machine: queued → running → completed | failed
+    side_effects:
+      - ecommerce.core.recover_cart (mutation)
+      - email.send (external)
+      - sms.send (external)
+    failure_handling:
+      retry: 0
+      on_error: continue
+    money_impact: recovery offer (10% off) — not persisted
+    observability: correlation ID from event; structlog step logs
+    proof: none
+
+  - name: ecommerce.post-purchase
+    id: ecommerce.post-purchase
+    tenant_id: 00000000-0000-0000-0000-000000000001
+    trigger:
+      type: event
+      event_type: order.placed
+    steps:
+      - id: send_thank_you_email
+        service: email
+        action: send
+        input: {to: "{{event.customer_email}}", subject: "Thank you for your order", body: "Your order is confirmed."}
+    state_machine: queued → running → completed | failed
+    side_effects:
+      - email.send (external)
+    failure_handling:
+      retry: 0
+      on_error: continue
+    money_impact: none
+    observability: correlation ID from event; structlog step logs
+    proof: none
+
+  - name: saas.onboarding
+    id: saas.onboarding
+    tenant_id: 00000000-0000-0000-0000-000000000001
+    trigger:
+      type: event
+      event_type: subscription.created
+    steps:
+      - id: send_welcome_email
+        service: email
+        action: send
+        input: {to: "{{event.customer_email}}", subject: "Welcome aboard", body: "Get started here."}
+      - id: send_feature_tutorial
+        service: email
+        action: send
+        input: {to: "{{event.customer_email}}", subject: "Feature tutorial", body: "Here's how to use it."}
+        depends_on: [send_welcome_email]
+    state_machine: queued → running → completed | failed
+    side_effects:
+      - email.send (external)
+    failure_handling:
+      retry: 0
+      on_error: continue
+    money_impact: none
+    observability: correlation ID from event; structlog step logs
+    proof: none
+
+  - name: saas.churn-prevention
+    id: saas.churn-prevention
+    tenant_id: 00000000-0000-0000-0000-000000000001
+    trigger:
+      type: event
+      event_type: subscription.past_due
+    steps:
+      - id: dunning
+        service: subscriptions
+        action: dunning
+        input: {subscription_id: "{{event.subscription_id}}", customer_email: "{{event.customer_email}}"}
+      - id: send_winback_email
+        service: email
+        action: send
+        input: {to: "{{event.customer_email}}", subject: "Your subscription is past due", body: "Reactivate today."}
+        depends_on: [dunning]
+    state_machine: queued → running → completed | failed
+    side_effects:
+      - subscriptions.dunning (mutation)
+      - email.send (external)
+    failure_handling:
+      retry: 0
+      on_error: continue
+    money_impact: dunning / reactivation — not persisted
+    observability: correlation ID from event; structlog step logs
+    proof: none
+
+  - name: fintech.kyc-onboarding
+    id: fintech.kyc-onboarding
+    tenant_id: 00000000-0000-0000-0000-000000000001
+    trigger:
+      type: event
+      event_type: client.created
+    steps:
+      - id: send_kyc_request
+        service: email
+        action: send
+        input: {to: "{{event.client_email}}", subject: "Verify your identity", body: "Please upload your ID."}
+    state_machine: queued → running → completed | failed
+    side_effects:
+      - email.send (external)
+    failure_handling:
+      retry: 0
+      on_error: continue
+    money_impact: none
+    observability: correlation ID from event; structlog step logs
+    proof: none
+
+  - name: fintech.fraud-alert
+    id: fintech.fraud-alert
+    tenant_id: 00000000-0000-0000-0000-000000000001
+    trigger:
+      type: manual
+    steps:
+      - id: send_fraud_alert_email
+        service: email
+        action: send
+        input: {to: "{{event.customer_email}}", subject: "Suspicious activity", body: "Review this transaction."}
+      - id: send_fraud_alert_sms
+        service: sms
+        action: send
+        input: {to: "{{event.customer_phone}}", body: "Suspicious activity detected on your account."}
+        depends_on: [send_fraud_alert_email]
+    state_machine: queued → running → completed | failed
+    side_effects:
+      - email.send (external)
+      - sms.send (external)
+    failure_handling:
+      retry: 0
+      on_error: continue
+    money_impact: none
+    observability: correlation ID from event; structlog step logs
+    proof: none
+
+  - name: healthcare.appointment-reminder
+    id: healthcare.appointment-reminder
+    tenant_id: 00000000-0000-0000-0000-000000000001
+    trigger:
+      type: manual
+    steps:
+      - id: send_reminder_email
+        service: email
+        action: send
+        input: {to: "{{event.patient_email}}", subject: "Appointment reminder", body: "Your appointment is tomorrow."}
+      - id: send_reminder_sms
+        service: sms
+        action: send
+        input: {to: "{{event.patient_phone}}", body: "Reminder: your appointment is tomorrow."}
+        depends_on: [send_reminder_email]
+    state_machine: queued → running → completed | failed
+    side_effects:
+      - email.send (external)
+      - sms.send (external)
+    failure_handling:
+      retry: 0
+      on_error: continue
+    money_impact: none
+    observability: correlation ID from event; structlog step logs
+    proof: none
+
+  - name: healthcare.patient-re-engagement
+    id: healthcare.patient-re-engagement
+    tenant_id: 00000000-0000-0000-0000-000000000001
+    trigger:
+      type: manual
+    steps:
+      - id: send_winback_email
+        service: email
+        action: send
+        input: {to: "{{event.patient_email}}", subject: "We'd love to see you again", body: "Schedule your next visit."}
+    state_machine: queued → running → completed | failed
+    side_effects:
+      - email.send (external)
+    failure_handling:
+      retry: 0
+      on_error: continue
+    money_impact: none
+    observability: correlation ID from event; structlog step logs
+    proof: none

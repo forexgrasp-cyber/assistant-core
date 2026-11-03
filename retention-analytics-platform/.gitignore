@@ -1,0 +1,44 @@
+# Runtime data
+data/
+logs/
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.pytype/
+
+# Package build artifacts
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker/
+
+# Testing
+.coverage
+htmlcov/
+.benchmarks/
+
+# Logs
+*.log

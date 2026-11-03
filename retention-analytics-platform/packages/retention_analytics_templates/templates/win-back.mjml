@@ -1,0 +1,13 @@
+<mjml>
+  <mj-body>
+    <mj-section>
+      <mj-column>
+        <mj-text font-size="24" font-weight="bold">We miss you, {{first_name}}!</mj-text>
+        <mj-text font-size="14" color="#666">
+          It's been a while since you last visited {{brand_name}}. Come back and enjoy {{discount}} off your next purchase.
+        </mj-text>
+        <mj-button href="{{shop_url}}" background-color="#4f46e5" color="white">Shop Now</mj-button>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

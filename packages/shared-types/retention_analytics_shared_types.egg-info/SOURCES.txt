@@ -1,6 +1,0 @@
-pyproject.toml
-retention_analytics_shared_types.egg-info/PKG-INFO
-retention_analytics_shared_types.egg-info/SOURCES.txt
-retention_analytics_shared_types.egg-info/dependency_links.txt
-retention_analytics_shared_types.egg-info/requires.txt
-retention_analytics_shared_types.egg-info/top_level.txt

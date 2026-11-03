@@ -1,0 +1,31 @@
+# Project nature declaration — retention-analytics-platform
+# Required by PRODUCTION_STANDARDS.md §14.2
+# Machine-readable: consumed by the production-readiness audit.
+
+project:
+  name: retention-analytics-platform
+  path: apps/api/main.py
+  description: Multi-tenant retention analytics platform: services wired into workflows, pipelines, and frontend
+
+nature:
+  primary: saas_vertical
+  secondary: []
+  reason: Multi-tenant vertical SaaS with auth, billing, CRUD, dashboard, campaigns, flows, and reports
+
+locales:
+  - en
+
+payment_providers:
+  - stripe
+
+deployment_target: ubuntu_vps_traefik_docker
+
+public_surfaces:
+  - /health
+  - /health/ready
+  - /api/v1/services
+  - /api/v1/workflows
+  - /api/v1/events
+  - /api/v1/entities/{schema_id}
+  - /api/v1/reports
+  - /api/v1/verticals

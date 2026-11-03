@@ -1,0 +1,13 @@
+<mjml>
+  <mj-body>
+    <mj-section>
+      <mj-column>
+        <mj-text font-size="24" font-weight="bold">You left something in your cart, {{first_name}}!</mj-text>
+        <mj-text font-size="14" color="#666">
+          Complete your purchase within the next 24 hours and get {{discount}} off.
+        </mj-text>
+        <mj-button href="{{cart_url}}" background-color="#4f46e5" color="white">Complete Purchase</mj-button>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

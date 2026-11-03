@@ -1,0 +1,36 @@
+# Deployment declaration — retention-analytics-platform
+# Required by DEPLOYMENT_STANDARDS.md §10
+# Input to shared/deployment/site_inventory.py
+
+name: retention-analytics-platform
+nature: saas_vertical
+branch: main
+compose_project: retention-analytics-platform
+edge_route:
+  host: retention.example.com
+  cert: wildcard
+  cert_domain: "*.example.com"
+  backend_port: 8765
+  mode: standalone
+health:
+  liveness: /health
+  readiness: /health/ready
+migrations:
+  runner: alembic
+  command: ["alembic", "upgrade", "head"]
+  migration_dir: apps/api/migrations
+backups:
+  retention_days: 30
+  offsite: [git_private, b2]
+  restore_drill: daily
+secrets:
+  source: env
+surfaces:
+  - /health
+  - /health/ready
+  - /api/v1/services
+  - /api/v1/workflows
+  - /api/v1/events
+  - /api/v1/entities/{schema_id}
+  - /api/v1/reports
+  - /api/v1/verticals

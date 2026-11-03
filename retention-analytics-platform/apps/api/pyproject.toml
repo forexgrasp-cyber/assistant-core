@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "retention-analytics-api"
+version = "0.1.0"
+description = "FastAPI gateway: wires services into workflows/pipelines and exposes them to frontend"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.3.0",
+    "structlog>=24.1.0",
+    "retention-analytics-shared-config @ file://../../packages/retention_analytics_shared_config",
+    "retention-analytics-shared-types @ file://../../packages/retention_analytics_shared_types",
+    "retention-analytics-core @ file://../../packages/retention_analytics_core",
+    "retention-analytics-engagement @ file://../../packages/retention_analytics_engagement",
+    "retention-analytics-ecommerce @ file://../../packages/retention_analytics_ecommerce",
+    "retention-analytics-analytics-core @ file://../../packages/retention_analytics_analytics_core",
+    "retention-analytics-reporting-engine @ file://../../packages/retention_analytics_reporting_engine",
+    "retention-analytics-vertical-packs @ file://../../packages/retention_analytics_vertical_packs",
+    "retention-analytics-templates @ file://../../packages/retention_analytics_templates",
+]
+
+[tool.setuptools.packages.find]
+include = ["*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+select = ["E", "F", "I", "W", "UP", "B", "C4"]
+ignore = ["E501", "B008"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+asyncio_mode = "auto"

@@ -1,0 +1,13 @@
+<mjml>
+  <mj-body>
+    <mj-section>
+      <mj-column>
+        <mj-text font-size="24" font-weight="bold">Welcome to {{brand_name}}, {{first_name}}!</mj-text>
+        <mj-text font-size="14" color="#666">
+          Thanks for joining {{brand_name}}. Get started with your dashboard and explore what you can do.
+        </mj-text>
+        <mj-button href="{{dashboard_url}}" background-color="#4f46e5" color="white">Open Dashboard</mj-button>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

@@ -1,7 +1,0 @@
-config.py
-pyproject.toml
-retention_analytics_shared_config.egg-info/PKG-INFO
-retention_analytics_shared_config.egg-info/SOURCES.txt
-retention_analytics_shared_config.egg-info/dependency_links.txt
-retention_analytics_shared_config.egg-info/requires.txt
-retention_analytics_shared_config.egg-info/top_level.txt

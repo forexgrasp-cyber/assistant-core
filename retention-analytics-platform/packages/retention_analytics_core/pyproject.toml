@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "retention-analytics-core"
+version = "0.1.0"
+description = "Platform kernel: dynamic entity system, workflow engine, permissions"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.7.0",
+    "sqlalchemy>=2.0.30",
+    "asyncpg>=0.29.0",
+    "alembic>=1.13.0",
+    "redis>=5.0.0",
+    "structlog>=24.1.0",
+    "tenacity>=8.2.0",
+    "retention-analytics-shared-config",
+    "retention-analytics-shared-types",
+]
+
+[tool.setuptools]
+package-dir = { "retention_analytics_core" = "." }
+packages = ["retention_analytics_core", "retention_analytics_core.entities", "retention_analytics_core.workflows"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+select = ["E", "F", "I", "W", "UP", "B", "C4"]
+ignore = ["E501", "B008"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+asyncio_mode = "auto"
