@@ -29,9 +29,9 @@ COPY --from=builder /app/.venv /app/.venv
 COPY --chown=appuser:appuser . .
 USER appuser
 
-EXPOSE 8766
+EXPOSE 47322
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8766/health', timeout=5)" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:47322/health', timeout=5)" || exit 1
 
 CMD ["python", "-m", "mcp_server.main"]

@@ -17,6 +17,7 @@ Security and correctness rules enforced here (PRODUCTION_STANDARDS.md §5-§7):
 from __future__ import annotations
 
 import hmac
+import html
 import json
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -41,10 +42,14 @@ from retention_analytics_core.entities.kernel import (
 from retention_analytics_core.middleware import (
     CorrelationIdMiddleware,
     RateLimitMiddleware,
+    SecurityHeadersMiddleware,
     TenantContextMiddleware,
     TracingMiddleware,
     get_metrics_prometheus,
+    metrics_middleware,
 )
+from apps.api.htmlview import maybe_html, metrics_to_html, wants_html
+from retention_analytics_core.platform_services import PlatformServices
 from retention_analytics_core.service_registry import ServiceRegistry
 from retention_analytics_core.tenancy import DEFAULT_TENANT, resolve_tenant
 from retention_analytics_core.workflows.engine import WorkflowEngine, WorkflowRun
@@ -99,6 +104,146 @@ for _service in (
 
 # The template service registers itself with the registry on construction.
 trigger_service = FlowTriggerService(registry, engine)
+
+# Wire all canonical shared services (feature flags, quota, entitlements,
+# sessions, profile, notifications, outbound webhooks, payments registry,
+# organizations, support, feedback, monetization, email marketing, lead capture).
+platform_services = PlatformServices(registry)
+platform_services.register_all()
+
+# Wire growth services (competitor parity: health scoring, dunning, surveys,
+# forecasting, segmentation, in-app messaging).
+from retention_analytics_growth.service import (
+    DunningService,
+    ForecastingService,
+    HealthScoringService,
+    InAppMessagingService,
+    SegmentationService,
+    SurveyService,
+)
+
+for svc_cls in (
+    HealthScoringService,
+    DunningService,
+    SurveyService,
+    ForecastingService,
+    SegmentationService,
+    InAppMessagingService,
+):
+    svc_cls(registry).register()
+
+# Phase 1-8: SaaS metrics, AI, CS ops, integrations, compliance
+from retention_analytics_saas_metrics.service import SaasMetricsService
+from retention_analytics_ai.service import FeedbackAIService, OfferRecommendationService, PredictiveChurnService
+from retention_analytics_cs_ops.service import (
+    AlertService,
+    CommandCenterService,
+    PlaybookService,
+    RenewalHubService,
+    SuccessPlanService,
+)
+from retention_analytics_integrations.service import (
+    IntegrationRegistryService,
+    SlackAlertService,
+    WebhookManagementService,
+)
+from retention_analytics_compliance.service import AuditExportService, PrivacyService, SSOService
+
+for svc_cls in (
+    SaasMetricsService,
+    PredictiveChurnService,
+    FeedbackAIService,
+    OfferRecommendationService,
+    SuccessPlanService,
+    PlaybookService,
+    AlertService,
+    RenewalHubService,
+    CommandCenterService,
+    IntegrationRegistryService,
+    SlackAlertService,
+    WebhookManagementService,
+    PrivacyService,
+    AuditExportService,
+    SSOService,
+):
+    svc_cls(registry).register()
+
+# UX-layer services: settings, saved reports, bulk events, flow management, campaigns
+from retention_analytics_ux.service import (
+    BulkEventService,
+    FlowManagementService,
+    SavedReportService,
+    TenantSettingsService,
+)
+from retention_analytics_ux.campaign import CampaignService
+
+for svc_cls in (TenantSettingsService, SavedReportService, BulkEventService, FlowManagementService, CampaignService):
+    svc_cls(registry).register()
+
+# Advanced universal services (competitor parity): customer 360, service-due,
+# benchmarks, goals, voice of customer, A/B testing, sequences, catalog, walls,
+# journeys, attribution, anomaly detection, pricing experiments, QBR.
+from retention_analytics_advanced.customer_intel import (
+    BenchmarksService,
+    Customer360Service,
+    GoalsService,
+    ServiceDueService,
+    VoiceOfCustomerService,
+)
+from retention_analytics_advanced.experiments import (
+    ABTestingService,
+    AnomalyDetectionService,
+    AttributionService,
+    CatalogService,
+    JourneyService,
+    PricingExperimentService,
+    QBRService,
+    SequenceService,
+    WallsService,
+)
+from retention_analytics_advanced.presets import PresetCatalogService
+from retention_analytics_advanced.automation import (
+    CancelFlowAPI,
+    FlowEditorService,
+    MicroSurveyService,
+    ScheduledReportService,
+    SessionReplayService,
+    SlackBotService,
+    UniversalExportService,
+)
+from retention_analytics_advanced.help_demo import DemoService, HelpService
+from retention_analytics_advanced.datatransfer import DataTransferService
+from retention_analytics_advanced.connectors import ConnectorService
+
+for svc_cls in (
+    Customer360Service,
+    ServiceDueService,
+    BenchmarksService,
+    GoalsService,
+    VoiceOfCustomerService,
+    ABTestingService,
+    SequenceService,
+    CatalogService,
+    WallsService,
+    JourneyService,
+    AttributionService,
+    AnomalyDetectionService,
+    PricingExperimentService,
+    QBRService,
+    PresetCatalogService,
+    ScheduledReportService,
+    FlowEditorService,
+    CancelFlowAPI,
+    SlackBotService,
+    SessionReplayService,
+    MicroSurveyService,
+    UniversalExportService,
+    HelpService,
+    DemoService,
+    DataTransferService,
+    ConnectorService,
+):
+    svc_cls(registry).register()
 
 for _definition in build_workflows():
     engine.register_definition(_definition)
@@ -159,9 +304,11 @@ app.add_middleware(
 if settings.allowed_host_list:
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_host_list)
 
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(CorrelationIdMiddleware)
 app.add_middleware(TracingMiddleware)
 app.add_middleware(TenantContextMiddleware)
+app.middleware("http")(metrics_middleware)
 app.add_middleware(
     RateLimitMiddleware,
     requests_per_minute=settings.rate_limit_per_minute,
@@ -247,48 +394,182 @@ def request_tenant(
 
 
 # ---------------------------------------------------------------------------
+# Root / API info
+# ---------------------------------------------------------------------------
+
+
+_STARTED_AT = datetime.now(UTC)
+
+
+def _platform_info() -> dict[str, Any]:
+    services = registry.list_services()
+    workflows = engine.list_definitions()
+    total_actions = sum(len(registry.get(s).actions) for s in services)
+    total_routes = len([r for r in app.routes if hasattr(r, "path")])
+    try:
+        from retention_analytics_advanced.pains import PAIN_CATALOG
+        pains = len(PAIN_CATALOG)
+        wf_ids = {d.id for d in workflows}
+        pains_covered = sum(1 for p in PAIN_CATALOG.values() if any(w in wf_ids for w in p["workflows"]))
+    except Exception:
+        pains = pains_covered = 0
+    return {
+        "service": "retention-analytics-platform",
+        "version": app.version,
+        "environment": get_settings().environment,
+        "status": "ok",
+        "uptime_seconds": int((datetime.now(UTC) - _STARTED_AT).total_seconds()),
+        "started_at": _STARTED_AT.isoformat(),
+        "services_count": len(services),
+        "actions_count": total_actions,
+        "workflows_count": len(workflows),
+        "workflows": [d.name for d in workflows],
+        "routes_count": total_routes,
+        "pains_total": pains,
+        "pains_covered": pains_covered,
+        "endpoints": {
+            "health": "/health",
+            "readiness": "/health/ready",
+            "metrics": "/metrics",
+            "docs": "/docs",
+            "openapi": "/openapi.json",
+            "services": "/api/v1/services",
+            "actions_catalog": "/api/v1/actions",
+            "workflows": "/api/v1/workflows",
+            "campaigns": "/api/v1/campaigns",
+            "customers": "/api/v1/customers",
+            "events": "POST /api/v1/events",
+            "reports": "/api/v1/reports/saved",
+            "pains": "/api/v1/pains",
+            "help": "/api/v1/help",
+            "demo": "POST /api/v1/demo/run",
+            "payments": "/api/v1/payments/providers",
+            "presets": "/api/v1/presets",
+            "integrations": "/api/v1/integrations/catalog",
+            "feature_flags": "/api/v1/feature-flags/{name}",
+            "monetization": "/api/v1/monetization/paths",
+            "generic_action": "POST /api/v1/actions/{service}/{action}",
+        },
+        "portals": {
+            "customer_portal": "http://localhost:47320",
+            "dev_console": "http://localhost:47321",
+            "swagger_ui": "/docs",
+            "mcp": "MCP server (apps/mcp_server)",
+        },
+    }
+
+
+@app.get("/")
+async def root(request: Request):
+    """API root: HTML status page for browsers, JSON for scripts (content negotiation)."""
+    info = _platform_info()
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept and "application/json" not in accept:
+        from fastapi.responses import HTMLResponse
+
+        uptime = info["uptime_seconds"]
+        wfs = "".join(f"<span class='chip'>{w}</span>" for w in info["workflows"])
+        eps = "".join(f"<tr><td><code>{k}</code></td><td><code>{v}</code></td></tr>" for k, v in info["endpoints"].items())
+        html = f"""<!DOCTYPE html><html><head><meta charset='utf-8'/><title>Retention Analytics Platform</title>
+<style>
+ body{{font-family:system-ui,sans-serif;margin:0;background:#0f172a;color:#e2e8f0}}
+ header{{background:linear-gradient(90deg,#4f46e5,#7c3aed);padding:28px 40px}}
+ header h1{{margin:0;font-size:24px;color:#fff}}
+ header p{{margin:6px 0 0;color:#c7d2fe;font-size:14px}}
+ main{{max-width:1000px;margin:24px auto;padding:0 20px}}
+ .cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px}}
+ .card{{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px}}
+ .card b{{font-size:26px;display:block;color:#fff}}
+ .card span{{font-size:12px;color:#94a3b8;text-transform:uppercase}}
+ .ok{{color:#34d399;font-weight:bold}}
+ section{{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:20px;margin-bottom:20px}}
+ h2{{font-size:16px;margin:0 0 12px;color:#c7d2fe}}
+ .chip{{display:inline-block;background:#312e81;color:#c7d2fe;border-radius:6px;padding:3px 8px;margin:2px;font-size:11px;font-family:monospace}}
+ table{{width:100%;border-collapse:collapse;font-size:13px}}
+ td{{padding:5px 8px;border-bottom:1px solid #334155}}
+ code{{color:#a5b4fc}}
+ a{{color:#818cf8;text-decoration:none}} a:hover{{text-decoration:underline}}
+ .links a{{display:inline-block;margin:3px 8px 3px 0;background:#312e81;padding:6px 12px;border-radius:8px;font-size:13px}}
+ footer{{text-align:center;color:#64748b;font-size:12px;padding:20px}}
+</style></head><body>
+<header><h1>Retention Analytics Platform</h1>
+<p>API v{info['version']} · environment <b>{info['environment']}</b> · status <span class='ok'>● {info['status']}</span> · uptime {uptime}s</p></header>
+<main>
+<div class='cards'>
+ <div class='card'><b>{info['services_count']}</b><span>services</span></div>
+ <div class='card'><b>{info['actions_count']}</b><span>actions</span></div>
+ <div class='card'><b>{info['workflows_count']}</b><span>workflows</span></div>
+ <div class='card'><b>{info['routes_count']}</b><span>routes</span></div>
+ <div class='card'><b>{info['pains_covered']}/{info['pains_total']}</b><span>pains covered</span></div>
+</div>
+<section><h2>Portals</h2><div class='links'>
+ <a href='http://localhost:47320'>Customer portal :47320</a>
+ <a href='http://localhost:47321'>Dev console :47321</a>
+ <a href='/docs'>Swagger UI</a>
+ <a href='/openapi.json'>OpenAPI JSON</a>
+ <a href='/metrics'>Metrics</a>
+ <a href='/health'>Health</a>
+ <a href='/api/v1/pains'>Pain coverage</a>
+ <a href='/api/v1/help'>Help</a>
+</div></section>
+<section><h2>Workflows ({info['workflows_count']})</h2><div>{wfs}</div></section>
+<section><h2>API endpoints</h2><table>{eps}</table></section>
+<section><h2>Generic action proxy</h2><p style='font-size:13px'>Every one of the <b>{info['actions_count']}</b> registered service actions is callable:
+<code>POST /api/v1/actions/&lt;service&gt;/&lt;action&gt;</code> with a JSON body. Catalog: <a href='/api/v1/actions'>/api/v1/actions</a>.</p></section>
+</main><footer>retention-analytics-platform · started {info['started_at'][:19]} UTC · JSON available with <code>Accept: application/json</code></footer>
+</body></html>"""
+        return HTMLResponse(html)
+    return info
+
+
+# ---------------------------------------------------------------------------
 # Health / observability
 # ---------------------------------------------------------------------------
 
 
 @app.get("/health")
-async def health() -> dict[str, Any]:
-    """Liveness probe."""
-    return {
+async def health(request: Request) -> Any:
+    """Liveness probe. HTML status page in browsers, JSON for probes/scripts."""
+    data = {
         "status": "ok",
         "service": "retention-analytics-platform",
         "version": app.version,
         "environment": get_settings().environment,
+        "uptime_seconds": int((datetime.now(UTC) - _STARTED_AT).total_seconds()),
         "services": registry.list_services(),
         "workflows": [d.name for d in engine.list_definitions()],
     }
+    return maybe_html(request, data, "Health")
 
 
 @app.get("/health/ready")
-async def health_ready(response: Response) -> dict[str, Any]:
+async def health_ready(request: Request, response: Response) -> Any:
     """Readiness probe with dependency checks."""
     adapters = get_adapters()
     result = await adapters.health.check_readiness()
     if result.get("status") != "healthy":
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-    return result
+    return maybe_html(request, result, "Readiness")
 
 
 @app.get("/health/live")
-async def health_live() -> dict[str, Any]:
-    return await get_adapters().health.check_liveness()
+async def health_live(request: Request) -> Any:
+    return maybe_html(request, await get_adapters().health.check_liveness(), "Liveness")
 
 
 @app.get("/api/v1/health")
-async def api_health() -> dict[str, Any]:
+async def api_health(request: Request) -> Any:
     """Frontend-facing health endpoint (same payload as ``/health``)."""
-    return await health()
+    return await health(request)
 
 
 @app.get("/metrics")
-async def metrics() -> Response:
-    """Prometheus metrics endpoint."""
-    return Response(content=get_metrics_prometheus(), media_type="text/plain; version=0.0.4")
+async def metrics(request: Request) -> Response:
+    """Prometheus metrics. Raw exposition for scrapers; a readable table in browsers."""
+    raw = get_metrics_prometheus()
+    if wants_html(request):
+        return metrics_to_html(raw)
+    return Response(content=raw, media_type="text/plain; version=0.0.4")
 
 
 # ---------------------------------------------------------------------------
@@ -566,7 +847,7 @@ def _verify_webhook_signature(provider: str, raw_body: bytes, signature: str) ->
 
 
 @app.get("/api/v1/services")
-async def list_services() -> dict[str, Any]:
+async def list_services(request: Request) -> Any:
     services = []
     for name in registry.list_services():
         registration = registry.get(name)
@@ -579,7 +860,7 @@ async def list_services() -> dict[str, Any]:
                 "metadata": registration.metadata,
             }
         )
-    return {"status": "ok", "services": services, "count": len(services)}
+    return maybe_html(request, {"status": "ok", "services": services, "count": len(services)}, "Services")
 
 
 @app.post("/api/v1/services/{service_name}/actions/{action_name}")
@@ -624,7 +905,7 @@ async def invoke_service(
 
 
 @app.get("/api/v1/workflows")
-async def list_workflows() -> dict[str, Any]:
+async def list_workflows(request: Request) -> Any:
     workflows = []
     for definition in engine.list_definitions():
         workflows.append(
@@ -640,7 +921,7 @@ async def list_workflows() -> dict[str, Any]:
                 "active": definition.active,
             }
         )
-    return {"status": "ok", "workflows": workflows, "count": len(workflows)}
+    return maybe_html(request, {"status": "ok", "workflows": workflows, "count": len(workflows)}, "Workflows")
 
 
 @app.post("/api/v1/workflows/{workflow_id}/run")
@@ -650,6 +931,8 @@ async def run_workflow(
     user: Annotated[CurrentUser, Depends(get_current_user)],
     body: WorkflowRunRequest = Body(default_factory=WorkflowRunRequest),
 ) -> dict[str, Any]:
+    if not settings.workflows_enabled:
+        raise HTTPException(status_code=503, detail="workflows are disabled")
     tenant_id = request_tenant(request, user, body.tenant_id)
     try:
         run = await engine.run(workflow_id, tenant_id, initial_context=body.context)
@@ -783,15 +1066,2231 @@ async def list_entitlements(
     user: Annotated[CurrentUser, Depends(get_current_user)],
 ) -> dict[str, Any]:
     """List the entitlements granted to the authenticated tenant."""
-    from retention_analytics_core.repository import data_root
-    from shared.billing.entitlements_service import EntitlementsService
+    return await registry.invoke(
+        "entitlements", "list_active", {"tenant_id": user.tenant_id}
+    )
 
-    service = EntitlementsService(str(data_root() / "billing" / "entitlements.db"))
-    return {
-        "status": "ok",
-        "account": user.tenant_id,
-        "entitlements": service.list_active(account=user.tenant_id),
+
+@app.post("/api/v1/webhooks/payments/{provider}")
+async def receive_payment_webhook(
+    provider: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Receive a payment provider webhook.
+
+    Signature-verified and idempotent per provider event id. The event is
+    recorded in the audit log and the idempotency ledger so a replayed
+    webhook never double-processes a payment.
+    """
+    raw_body = await request.body()
+    signature = request.headers.get("stripe-signature") or request.headers.get(
+        "x-signature", ""
+    )
+
+    settings = get_settings()
+    webhook_secret = settings.stripe_webhook_secret or settings.webhook_secret
+    if settings.is_production and webhook_secret:
+        expected = hmac.new(
+            webhook_secret.encode("utf-8"), raw_body, sha256
+        ).hexdigest()
+        provided = signature.split("=", 1)[-1].strip() if "=" in signature else signature
+        if not hmac.compare_digest(expected, provided):
+            raise HTTPException(status_code=401, detail="invalid payment webhook signature")
+
+    try:
+        payload = json.loads(raw_body or b"{}")
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="invalid JSON payload") from exc
+
+    tenant_id = current_tenant(request, user)
+    adapters = get_adapters()
+    event_id = str(
+        payload.get("id") or payload.get("event_id") or sha256(raw_body).hexdigest()[:16]
+    )
+    ledger_key = adapters.idempotency.build_key("payment_webhook", provider, tenant_id, event_id)
+
+    claimed, prior = adapters.idempotency.claim(ledger_key, tenant_id)
+    if not claimed:
+        if prior is not None:
+            return {**prior, "idempotent_replay": True}
+        raise HTTPException(status_code=409, detail="payment webhook already being processed")
+
+    result = {
+        "status": "accepted",
+        "provider": provider,
+        "event_id": event_id,
+        "event_type": payload.get("type", "unknown"),
+        "tenant_id": tenant_id,
+        "received_at": datetime.now(UTC).isoformat(),
     }
+    adapters.idempotency.complete(ledger_key, result)
+    _audit(
+        event_type="payment.webhook.received",
+        user=user,
+        tenant_id=tenant_id,
+        resource_type="payment_webhook",
+        resource_id=event_id,
+        action="receive",
+        details={"provider": provider, "event_type": payload.get("type", "unknown")},
+    )
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Platform services (feature flags, quota, sessions, profile, notifications,
+# webhooks out, organizations, support, feedback, monetization, etc.)
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/v1/feature-flags/{flag_name}")
+async def check_feature_flag(
+    flag_name: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Check if a feature flag is enabled for the authenticated tenant."""
+    tenant_id = current_tenant(request, user)
+    result = await registry.invoke(
+        "feature_flags", "is_enabled", {"flag": flag_name, "tenant_id": tenant_id}
+    )
+    return result
+
+
+@app.post("/api/v1/quota/check")
+async def check_quota(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    resource: str = "api_calls",
+) -> dict[str, Any]:
+    """Check quota for a resource."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke(
+        "quota", "check", {"tenant_id": tenant_id, "resource": resource}
+    )
+
+
+@app.post("/api/v1/sessions")
+async def create_session(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Create a new session for the authenticated user."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke(
+        "sessions", "create", {"user_id": user.user_id, "tenant_id": tenant_id}
+    )
+
+
+@app.get("/api/v1/profile")
+async def get_profile(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Get the authenticated user's profile."""
+    return await registry.invoke("profile", "get", {"user_id": user.user_id})
+
+
+@app.post("/api/v1/notifications")
+async def send_notification(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    title: str = "Notification",
+    body: str = "",
+    type: str = "info",
+) -> dict[str, Any]:
+    """Send a notification to the authenticated user."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke(
+        "notifications",
+        "send",
+        {"user_id": user.user_id, "tenant_id": tenant_id, "title": title, "body": body, "type": type},
+    )
+
+
+@app.post("/api/v1/webhooks/out/dispatch")
+async def dispatch_webhook(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    url: str,
+    event_type: str,
+    data: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Dispatch an outbound webhook with DLQ support."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke(
+        "webhooks_out",
+        "dispatch",
+        {"url": url, "event_type": event_type, "data": data or {}, "tenant_id": tenant_id},
+    )
+
+
+@app.get("/api/v1/organizations/invitations")
+async def list_invitations(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    org_id: str = "",
+) -> dict[str, Any]:
+    """List pending invitations for an organization."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke(
+        "organizations", "list", {"org_id": org_id or tenant_id, "tenant_id": tenant_id}
+    )
+
+
+@app.post("/api/v1/organizations/invitations")
+async def create_invitation(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    email: str,
+    role: str = "member",
+    org_id: str = "",
+) -> dict[str, Any]:
+    """Invite a user to an organization."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke(
+        "organizations",
+        "invite",
+        {"org_id": org_id or tenant_id, "email": email, "role": role, "tenant_id": tenant_id},
+    )
+
+
+@app.post("/api/v1/support/tickets")
+async def create_support_ticket(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    subject: str,
+    description: str = "",
+    priority: str = "normal",
+) -> dict[str, Any]:
+    """Create a support ticket."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke(
+        "support",
+        "create_ticket",
+        {
+            "tenant_id": tenant_id,
+            "subject": subject,
+            "description": description,
+            "priority": priority,
+        },
+    )
+
+
+@app.post("/api/v1/feedback")
+async def submit_feedback(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    score: int,
+    comment: str = "",
+) -> dict[str, Any]:
+    """Submit product feedback / NPS score."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke(
+        "feedback",
+        "submit",
+        {"tenant_id": tenant_id, "user_id": user.user_id, "score": score, "comment": comment},
+    )
+
+
+@app.get("/api/v1/monetization/paths")
+async def list_monetization_paths(
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """List available monetization paths."""
+    return await registry.invoke("monetization", "list_paths", {"tenant_id": user.tenant_id})
+
+
+@app.post("/api/v1/leads")
+async def capture_lead(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    email: str,
+    source: str = "direct",
+) -> dict[str, Any]:
+    """Capture a lead."""
+    tenant_id = current_tenant(request, user)
+    from datetime import UTC, datetime
+
+    return await registry.invoke(
+        "lead_capture",
+        "capture",
+        {
+            "email": email,
+            "source": source,
+            "tenant_id": tenant_id,
+            "captured_at": datetime.now(UTC).isoformat(),
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Growth services (health, dunning, surveys, forecasting, segmentation, in-app)
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/v1/health/compute")
+async def compute_health(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    client_id: str = "",
+    usage_score: float = 50,
+    support_score: float = 50,
+    payment_score: float = 100,
+    engagement_score: float = 50,
+) -> dict[str, Any]:
+    """Compute customer health score (0-100). Competitor: ChurnZero ChurnScores, Vitally Health."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke(
+        "health.scoring", "compute",
+        {"tenant_id": tenant_id, "client_id": client_id, "usage_score": usage_score,
+         "support_score": support_score, "payment_score": payment_score, "engagement_score": engagement_score},
+    )
+
+
+@app.get("/api/v1/health/at-risk")
+async def list_at_risk(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    threshold: float = 50,
+) -> dict[str, Any]:
+    """List clients below health threshold."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("health.scoring", "list_low", {"tenant_id": tenant_id, "threshold": threshold})
+
+
+@app.post("/api/v1/dunning/start")
+async def start_dunning(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    subscription_id: str,
+    customer_email: str,
+    amount_due: float = 0,
+) -> dict[str, Any]:
+    """Start dunning campaign for failed payment. Competitor: Baremetrics Recover, Churnkey Payment Recovery."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke(
+        "dunning", "start_campaign",
+        {"tenant_id": tenant_id, "subscription_id": subscription_id, "customer_email": customer_email, "amount_due": amount_due},
+    )
+
+
+@app.get("/api/v1/dunning/active")
+async def list_dunning(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("dunning", "list_active", {"tenant_id": tenant_id})
+
+
+@app.post("/api/v1/surveys/nps")
+async def send_nps_survey(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    client_id: str = "",
+    customer_email: str = "",
+) -> dict[str, Any]:
+    """Send NPS survey. Competitor: Vitally NPS, ChurnZero Surveys."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("surveys", "send_nps", {"tenant_id": tenant_id, "client_id": client_id, "customer_email": customer_email})
+
+
+@app.get("/api/v1/surveys/nps-score")
+async def get_nps(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("surveys", "compute_nps", {"tenant_id": tenant_id})
+
+
+@app.post("/api/v1/forecast/mrr")
+async def forecast_mrr(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    current_mrr: float = 0,
+    monthly_growth_rate: float = 0.05,
+    monthly_churn_rate: float = 0.03,
+    months: int = 12,
+) -> dict[str, Any]:
+    """Forecast MRR. Competitor: Baremetrics Forecasting."""
+    return await registry.invoke(
+        "forecasting", "forecast_mrr",
+        {"current_mrr": current_mrr, "monthly_growth_rate": monthly_growth_rate, "monthly_churn_rate": monthly_churn_rate, "months": months},
+    )
+
+
+@app.get("/api/v1/segments")
+async def list_segments(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """List saved segments for the tenant."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("segmentation", "list_segments", {"tenant_id": tenant_id})
+
+
+@app.post("/api/v1/segments")
+async def define_segment(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    name: str,
+    criteria: dict[str, Any] | None = None,
+    segment_id: str = "",
+) -> dict[str, Any]:
+    """Define a customer segment. Competitor: Baremetrics/Churnkey Segmentation."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke(
+        "segmentation", "define_segment",
+        {"tenant_id": tenant_id, "name": name, "criteria": criteria or {}, "segment_id": segment_id},
+    )
+
+
+@app.post("/api/v1/inapp/banner")
+async def send_inapp_banner(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    title: str,
+    body: str = "",
+    client_id: str = "",
+) -> dict[str, Any]:
+    """Send in-app banner. Competitor: ChurnZero In-app communications."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("inapp.messaging", "send_banner", {"tenant_id": tenant_id, "client_id": client_id, "title": title, "body": body})
+
+
+# ---------------------------------------------------------------------------
+# SaaS metrics suite (MRR/ARR/GRR/NRR/LTV/CAC/ARPU/payback/logo/quick-ratio)
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/v1/metrics/saas")
+async def compute_saas_metrics(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Compute full SaaS metrics suite. Competitor: Baremetrics/ChartMogul metrics."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("saas.metrics", "compute_all", {**body, "tenant_id": tenant_id})
+
+
+@app.post("/api/v1/metrics/{metric_name}")
+async def compute_one_metric(
+    metric_name: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Compute a single SaaS metric (mrr, arr, grr, nrr, ltv, cac, arpu, payback, logo_retention, quick_ratio)."""
+    tenant_id = current_tenant(request, user)
+    action = f"compute_{metric_name}"
+    return await registry.invoke("saas.metrics", action, {**body, "tenant_id": tenant_id})
+
+
+# ---------------------------------------------------------------------------
+# AI: predictive churn, feedback classification, offer recommendation
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/v1/ai/churn/predict")
+async def predict_churn(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    client_id: str = "",
+    usage_drop_pct: float = 0,
+    open_tickets: int = 0,
+    payment_failures: int = 0,
+    logins_last_30d: int = 10,
+    nps_score: float = 8,
+) -> dict[str, Any]:
+    """Predict churn probability. Competitor: Churnkey Customer Health."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("ai.churn_predict", "predict", {
+        "tenant_id": tenant_id, "client_id": client_id,
+        "usage_drop_pct": usage_drop_pct, "open_tickets": open_tickets,
+        "payment_failures": payment_failures, "logins_last_30d": logins_last_30d, "nps_score": nps_score,
+    })
+
+
+@app.get("/api/v1/ai/churn/at-risk")
+async def list_churn_at_risk(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    threshold: float = 0.4,
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("ai.churn_predict", "at_risk_list", {"tenant_id": tenant_id, "threshold": threshold})
+
+
+@app.post("/api/v1/ai/feedback/classify")
+async def classify_feedback(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    text: str,
+    client_id: str = "",
+    mrr: float = 0,
+) -> dict[str, Any]:
+    """Classify freeform feedback. Competitor: Churnkey Feedback AI."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("ai.feedback", "classify", {"tenant_id": tenant_id, "client_id": client_id, "text": text, "mrr": mrr})
+
+
+@app.get("/api/v1/ai/feedback/themes")
+async def feedback_themes(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("ai.feedback", "themes", {"tenant_id": tenant_id})
+
+
+@app.post("/api/v1/ai/offers/recommend")
+async def recommend_offer(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    churn_reason: str = "general",
+    churn_probability: float = 0.5,
+    mrr: float = 0,
+) -> dict[str, Any]:
+    """Recommend best retention offer. Competitor: Churnkey Adaptive/Dynamic Offers."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("ai.offers", "recommend", {"tenant_id": tenant_id, "churn_reason": churn_reason, "churn_probability": churn_probability, "mrr": mrr})
+
+
+# ---------------------------------------------------------------------------
+# CS ops: success plans, playbooks, alerts, renewals, command center
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/v1/cs/plans")
+async def create_success_plan(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    name: str,
+    client_id: str = "",
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("cs.plans", "create", {"tenant_id": tenant_id, "client_id": client_id, "name": name})
+
+
+@app.get("/api/v1/cs/plans")
+async def list_success_plans(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    client_id: str = "",
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("cs.plans", "list", {"tenant_id": tenant_id, "client_id": client_id})
+
+
+class PlaybookCreateRequest(BaseModel):
+    name: str
+    trigger: str = ""
+    actions: list[dict[str, Any]] = Field(default_factory=list)
+
+
+@app.post("/api/v1/cs/playbooks")
+async def create_playbook(
+    body: PlaybookCreateRequest,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Create automated playbook. Competitor: ChurnZero Playbooks/Journeys, Vitally Automation."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("cs.playbooks", "create", {"tenant_id": tenant_id, "name": body.name, "trigger": body.trigger, "actions": body.actions})
+
+
+@app.post("/api/v1/cs/playbooks/{playbook_id}/run")
+async def run_playbook(
+    playbook_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    client_id: str = "",
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("cs.playbooks", "run", {"tenant_id": tenant_id, "playbook_id": playbook_id, "client_id": client_id})
+
+
+@app.get("/api/v1/cs/alerts/open")
+async def list_open_alerts(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Open real-time alerts. Competitor: ChurnZero Real-time alerts."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("cs.alerts", "list_open", {"tenant_id": tenant_id})
+
+
+@app.post("/api/v1/cs/alerts/fire")
+async def fire_alert(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    title: str,
+    detail: str = "",
+    severity: str = "medium",
+    type: str = "info",
+    client_id: str = "",
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("cs.alerts", "fire", {"tenant_id": tenant_id, "client_id": client_id, "title": title, "detail": detail, "severity": severity, "type": type})
+
+
+@app.get("/api/v1/cs/renewals/forecast")
+async def renewal_forecast(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Renewal forecast. Competitor: ChurnZero Renewal & Forecast Hub."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("cs.renewals", "forecast", {"tenant_id": tenant_id})
+
+
+@app.get("/api/v1/cs/command-center")
+async def command_center(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Unified command center overview. Competitor: ChurnZero Command Center."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("cs.command_center", "overview", {"tenant_id": tenant_id})
+
+
+# ---------------------------------------------------------------------------
+# Integrations: catalog, connect, Slack, webhook management
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/v1/integrations/catalog")
+async def integration_catalog(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, Any]:
+    """70+ supported integrations. Competitor: ChurnZero 70+, Vitally 40+."""
+    return await registry.invoke("integrations", "catalog", {})
+
+
+@app.post("/api/v1/integrations/connect")
+async def connect_integration(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    provider: str,
+    category: str = "other",
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("integrations", "connect", {"tenant_id": tenant_id, "provider": provider, "category": category})
+
+
+@app.get("/api/v1/integrations/connected")
+async def list_connected(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("integrations", "list_connected", {"tenant_id": tenant_id})
+
+
+@app.post("/api/v1/integrations/slack/send")
+async def send_slack(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    text: str,
+    channel: str = "#customer-success",
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("integrations.slack", "send", {"tenant_id": tenant_id, "channel": channel, "text": text})
+
+
+class WebhookEndpointRequest(BaseModel):
+    url: str
+    events: list[str] = Field(default_factory=list)
+
+
+@app.post("/api/v1/webhook-endpoints")
+async def register_webhook_endpoint(
+    body: WebhookEndpointRequest,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Register outbound webhook endpoint. Competitor: Churnkey Webhooks."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("webhooks.manage", "register", {"tenant_id": tenant_id, "url": body.url, "events": body.events})
+
+
+@app.get("/api/v1/webhook-endpoints")
+async def list_webhook_endpoints(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("webhooks.manage", "list", {"tenant_id": tenant_id})
+
+
+# ---------------------------------------------------------------------------
+# Compliance: GDPR/CCPA, audit export, SSO
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/v1/compliance/export")
+async def gdpr_export(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """GDPR right to data portability: export all tenant data."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("compliance.privacy", "export_data", {"tenant_id": tenant_id, "subject_email": user.user_id})
+
+
+@app.post("/api/v1/compliance/delete")
+async def gdpr_delete(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """GDPR right to erasure: delete all tenant data. DANGEROUS — audit logged."""
+    tenant_id = current_tenant(request, user)
+    _audit(event_type="gdpr.delete_requested", user=user, tenant_id=tenant_id, resource_type="tenant_data", resource_id=tenant_id, action="delete_request")
+    return await registry.invoke("compliance.privacy", "delete_data", {"tenant_id": tenant_id, "subject_email": user.user_id})
+
+
+@app.get("/api/v1/compliance/audit-export")
+async def audit_export(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Export hash-chained audit log for SOC 2 evidence."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("compliance.audit_export", "export", {"tenant_id": tenant_id})
+
+
+@app.get("/api/v1/compliance/sso/status")
+async def sso_status(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """SSO/SAML configuration status."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("compliance.sso", "status", {"tenant_id": tenant_id})
+
+
+# ---------------------------------------------------------------------------
+# UX layer: settings, saved reports, bulk events, flow management
+# ---------------------------------------------------------------------------
+
+
+class SettingsUpdate(BaseModel):
+    updates: dict[str, Any] = Field(default_factory=dict)
+
+
+@app.get("/api/v1/settings")
+async def get_settings_ux(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Get editable tenant settings (notifications, flags, quotas, branding)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("ux.settings", "get", {"tenant_id": tenant_id})
+
+
+@app.patch("/api/v1/settings")
+async def update_settings_ux(
+    body: SettingsUpdate,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Update tenant settings. Persisted per tenant."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("ux.settings", "update", {"tenant_id": tenant_id, "updates": body.updates})
+
+
+@app.post("/api/v1/settings/flags/{flag}")
+async def set_feature_flag_ux(
+    flag: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    enabled: bool = True,
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("ux.settings", "set_flag", {"tenant_id": tenant_id, "flag": flag, "enabled": enabled})
+
+
+@app.post("/api/v1/settings/api-keys")
+async def create_api_key_ux(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    name: str = "API Key",
+) -> dict[str, Any]:
+    """Create a new API key for the tenant."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("ux.settings", "create_api_key", {"tenant_id": tenant_id, "name": name})
+
+
+@app.get("/api/v1/settings/api-keys")
+async def list_api_keys_ux(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("ux.settings", "list_api_keys", {"tenant_id": tenant_id})
+
+
+@app.delete("/api/v1/settings/api-keys/{key_id}")
+async def revoke_api_key_ux(
+    key_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("ux.settings", "revoke_api_key", {"tenant_id": tenant_id, "key_id": key_id})
+
+
+# --- Saved reports ---
+
+
+class SaveReportRequest(BaseModel):
+    name: str
+    description: str = ""
+    format: str = "json"
+    filters: dict[str, Any] = Field(default_factory=dict)
+    widgets: list[str] = Field(default_factory=list)
+    schedule: dict[str, Any] | None = None
+
+
+@app.post("/api/v1/reports/saved")
+async def save_report(
+    body: SaveReportRequest,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Save a named report with filters and widgets. Users re-run it anytime."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("ux.reports", "save", {
+        "tenant_id": tenant_id, "name": body.name, "description": body.description,
+        "format": body.format, "filters": body.filters, "widgets": body.widgets, "schedule": body.schedule,
+    })
+
+
+@app.get("/api/v1/reports/saved")
+async def list_saved_reports(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("ux.reports", "list", {"tenant_id": tenant_id})
+
+
+@app.post("/api/v1/reports/saved/{report_id}/run")
+async def run_saved_report(
+    report_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Run a saved report: applies filters, computes analytics widgets, stores result."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("ux.reports", "run", {"tenant_id": tenant_id, "report_id": report_id})
+
+
+@app.delete("/api/v1/reports/saved/{report_id}")
+async def delete_saved_report(
+    report_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("ux.reports", "delete", {"tenant_id": tenant_id, "report_id": report_id})
+
+
+# --- Bulk events ---
+
+
+@app.get("/api/v1/events/schemas")
+async def event_schemas(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Event type schemas — the UI renders dynamic forms from this."""
+    return await registry.invoke("ux.events", "schemas", {})
+
+
+class BulkImportRequest(BaseModel):
+    event_type: str
+    rows: list[dict[str, Any]]
+    mapping: dict[str, str] = Field(default_factory=dict)
+
+
+@app.post("/api/v1/events/bulk-import")
+async def bulk_import_events(
+    body: BulkImportRequest,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Bulk import events from rows + field mapping (CSV columns → payload fields)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("ux.events", "bulk_import", {
+        "tenant_id": tenant_id, "event_type": body.event_type, "rows": body.rows, "mapping": body.mapping,
+    })
+
+
+class MapFieldsRequest(BaseModel):
+    event_type: str
+    columns: list[str]
+
+
+@app.post("/api/v1/events/map-fields")
+async def map_fields(
+    body: MapFieldsRequest,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Suggest field mapping from CSV columns to event payload fields."""
+    return await registry.invoke("ux.events", "map_fields", {"event_type": body.event_type, "columns": body.columns})
+
+
+@app.get("/api/v1/events/export")
+async def export_events(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Export imported events as CSV."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("ux.events", "export", {"tenant_id": tenant_id})
+
+
+# --- Flow management ---
+
+
+@app.post("/api/v1/workflows/{workflow_id}/toggle")
+async def toggle_workflow(
+    workflow_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    active: bool = True,
+) -> dict[str, Any]:
+    """Enable/disable a workflow."""
+    tenant_id = current_tenant(request, user)
+    result = await registry.invoke("ux.flows", "set_active", {"tenant_id": tenant_id, "workflow_id": workflow_id, "active": active})
+    engine_def = engine.get_definition(workflow_id)
+    if engine_def:
+        engine_def.active = active
+    return result
+
+
+@app.post("/api/v1/workflows/{workflow_id}/target")
+async def set_workflow_target(
+    workflow_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    segment_id: str = "",
+    segment_name: str = "All customers",
+) -> dict[str, Any]:
+    """Assign a target segment to a workflow — who it applies to."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("ux.flows", "set_target", {"tenant_id": tenant_id, "workflow_id": workflow_id, "segment_id": segment_id, "segment_name": segment_name})
+
+
+@app.get("/api/v1/workflows/config")
+async def list_workflow_config(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Get per-workflow config (active, target segment, custom steps) for the UI."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("ux.flows", "list_config", {"tenant_id": tenant_id})
+
+
+# ---------------------------------------------------------------------------
+# Campaigns — the unified orchestration layer: SEGMENT -> FLOWS -> RUN -> MEASURE
+# Data transfer: CSV/JSON import + export for customers, campaigns
+
+# ---------------------------------------------------------------------------
+
+
+class CampaignCreateRequest(BaseModel):
+    name: str
+    description: str = ""
+    goal: str = "reduce_churn"
+    segment: dict[str, Any] = Field(default_factory=lambda: {"id": "all", "name": "All customers", "criteria": {}})
+    flows: list[str] = Field(default_factory=list)
+    schedule: dict[str, Any] = Field(default_factory=lambda: {"type": "once"})
+    success_metrics: list[str] = Field(default_factory=list)
+
+
+@app.get("/api/v1/campaigns/goals")
+async def campaign_goals(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, Any]:
+    """Available campaign goals with default flows and metrics."""
+    return await registry.invoke("campaigns", "goals", {})
+
+
+@app.post("/api/v1/campaigns")
+async def create_campaign(
+    body: CampaignCreateRequest,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Create a campaign: goal + target segment + flows + schedule + success metrics."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("campaigns", "create", {"tenant_id": tenant_id, **body.model_dump()})
+
+
+@app.get("/api/v1/campaigns")
+async def list_campaigns(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("campaigns", "list", {"tenant_id": tenant_id})
+
+
+@app.get("/api/v1/campaigns/{campaign_id}")
+async def get_campaign(
+    campaign_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("campaigns", "get", {"tenant_id": tenant_id, "campaign_id": campaign_id})
+
+
+@app.post("/api/v1/campaigns/{campaign_id}/activate")
+async def activate_campaign(
+    campaign_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Activate: binds flows to the target segment, ready to run."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("campaigns", "activate", {"tenant_id": tenant_id, "campaign_id": campaign_id})
+
+
+@app.post("/api/v1/campaigns/{campaign_id}/pause")
+async def pause_campaign(
+    campaign_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("campaigns", "pause", {"tenant_id": tenant_id, "campaign_id": campaign_id})
+
+
+class CampaignRunRequest(BaseModel):
+    clients: list[dict[str, Any]] = Field(default_factory=list)
+
+
+@app.post("/api/v1/campaigns/{campaign_id}/run")
+async def run_campaign(
+    campaign_id: str,
+    body: CampaignRunRequest,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Run a campaign: evaluate segment -> run flows per member -> measure before/after."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("campaigns", "run", {"tenant_id": tenant_id, "campaign_id": campaign_id, "clients": body.clients})
+
+
+@app.get("/api/v1/campaigns/{campaign_id}/results")
+async def campaign_results(
+    campaign_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Campaign results: outcomes per member + baseline/after metrics + deltas."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("campaigns", "results", {"tenant_id": tenant_id, "campaign_id": campaign_id})
+
+
+@app.delete("/api/v1/campaigns/{campaign_id}")
+async def delete_campaign(
+    campaign_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("campaigns", "delete", {"tenant_id": tenant_id, "campaign_id": campaign_id})
+
+
+@app.post("/api/v1/segments/evaluate")
+async def evaluate_segment(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    criteria: dict[str, Any] = Body(default_factory=dict),
+    clients: list[dict[str, Any]] = Body(default_factory=list),
+) -> dict[str, Any]:
+    """Evaluate segment criteria against a client list — see who a campaign targets."""
+    return await registry.invoke("campaigns", "evaluate_segment", {"criteria": criteria, "clients": clients})
+
+
+# ---------------------------------------------------------------------------
+# Advanced universal services
+# ---------------------------------------------------------------------------
+
+
+class CustomerProfileRequest(BaseModel):
+    id: str = ""
+    name: str = ""
+    email: str = ""
+    phone: str = ""
+    plan: str = ""
+    mrr: float = 0
+    ltv: float = 0
+    health_score: float = 100
+    last_service_date: str | None = None
+    service_interval_days: int = 0
+    service_name: str = ""
+    attributes: dict[str, Any] = Field(default_factory=dict)
+
+
+@app.post("/api/v1/customers")
+async def upsert_customer(
+    body: CustomerProfileRequest,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Create/update a customer record with computed next-due date and days remaining."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("customers.360", "upsert_profile", {"tenant_id": tenant_id, **body.model_dump()})
+
+
+@app.get("/api/v1/customers")
+async def list_customers(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("customers.360", "list_profiles", {"tenant_id": tenant_id})
+
+
+@app.get("/api/v1/customers/{customer_id}")
+async def get_customer(
+    customer_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Customer 360: profile + enrichment + touchpoints + recordings."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("customers.360", "get_profile", {"tenant_id": tenant_id, "id": customer_id})
+
+
+@app.get("/api/v1/customers/{customer_id}/timeline")
+async def customer_timeline(
+    customer_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Unified customer timeline across profile, touchpoints, recordings."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("customers.360", "timeline", {"tenant_id": tenant_id, "id": customer_id})
+
+
+@app.post("/api/v1/customers/{customer_id}/touchpoints")
+async def log_touchpoint(
+    customer_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Log a call/meeting/email/note against a customer."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("customers.360", "log_touchpoint", {"tenant_id": tenant_id, "customer_id": customer_id, **body})
+
+
+@app.post("/api/v1/customers/{customer_id}/recordings")
+async def link_recording(
+    customer_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Link a session recording to a customer."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("customers.360", "link_recording", {"tenant_id": tenant_id, "customer_id": customer_id, **body})
+
+
+@app.post("/api/v1/customers/{customer_id}/enrich")
+async def enrich_customer(
+    customer_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Augmentation: merge external data into a customer profile."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("customers.360", "enrich", {"tenant_id": tenant_id, "id": customer_id, **body})
+
+
+@app.get("/api/v1/service-due")
+async def service_due_scan(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    within_days: int = 7,
+) -> dict[str, Any]:
+    """Scan for services due soon or overdue (oil change, treatment, subscription, maintenance)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("customers.service_due", "scan", {"tenant_id": tenant_id, "within_days": within_days})
+
+
+@app.post("/api/v1/service-due/reminders")
+async def schedule_service_reminders(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    within_days: int = 7,
+) -> dict[str, Any]:
+    """Create reminders for due/overdue services — feeds the service-reminder flow."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("customers.service_due", "schedule_reminders", {"tenant_id": tenant_id, "within_days": within_days})
+
+
+@app.get("/api/v1/benchmarks")
+async def list_benchmarks(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, Any]:
+    """Industry benchmark baselines."""
+    return await registry.invoke("benchmarks", "list_industries", {})
+
+
+@app.post("/api/v1/benchmarks/compare")
+async def compare_benchmarks(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Compare your metrics against industry benchmarks."""
+    return await registry.invoke("benchmarks", "compare", body)
+
+
+@app.get("/api/v1/goals")
+async def list_goals(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("goals", "list", {"tenant_id": tenant_id})
+
+
+@app.post("/api/v1/goals")
+async def create_goal(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Set a business goal (MRR, churn rate, NPS...) and track progress."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("goals", "create", {"tenant_id": tenant_id, **body})
+
+
+@app.post("/api/v1/experiments")
+async def create_experiment(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Create an A/B experiment with variants."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("experiments.ab", "create", {"tenant_id": tenant_id, **body})
+
+
+@app.get("/api/v1/experiments")
+async def list_experiments(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("experiments.ab", "list", {"tenant_id": tenant_id})
+
+
+@app.post("/api/v1/experiments/{experiment_id}/results")
+async def record_experiment_result(
+    experiment_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Record variant outcomes."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("experiments.ab", "record_result", {"tenant_id": tenant_id, "experiment_id": experiment_id, **body})
+
+
+@app.get("/api/v1/experiments/{experiment_id}/analyze")
+async def analyze_experiment(
+    experiment_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Compare variant conversion rates and identify the winner."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("experiments.ab", "analyze", {"tenant_id": tenant_id, "experiment_id": experiment_id})
+
+
+@app.post("/api/v1/sequences")
+async def create_sequence(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Create a multi-touch drip sequence (email/SMS/push with delays)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("automation.sequences", "create", {"tenant_id": tenant_id, **body})
+
+
+@app.get("/api/v1/sequences")
+async def list_sequences(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("automation.sequences", "list", {"tenant_id": tenant_id})
+
+
+@app.post("/api/v1/sequences/{sequence_id}/enroll")
+async def enroll_sequence(
+    sequence_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Enroll a customer into a drip sequence."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("automation.sequences", "enroll", {"tenant_id": tenant_id, "sequence_id": sequence_id, **body})
+
+
+@app.post("/api/v1/sequences/advance")
+async def advance_sequence(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Advance an enrollment to its next touch (or complete the sequence)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("automation.sequences", "advance", {"tenant_id": tenant_id, **body})
+
+
+@app.post("/api/v1/catalog/products")
+async def add_product(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Add a product to the catalog (for cross-sell/upsell)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("catalog", "add_product", {"tenant_id": tenant_id, **body})
+
+
+@app.get("/api/v1/catalog/products")
+async def list_products(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("catalog", "list_products", {"tenant_id": tenant_id})
+
+
+@app.post("/api/v1/catalog/offers")
+async def add_offer(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Add an offer (discount, cross-sell, pause, downgrade, annual)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("catalog", "add_offer", {"tenant_id": tenant_id, **body})
+
+
+@app.get("/api/v1/catalog/offers")
+async def list_offers(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("catalog", "list_offers", {"tenant_id": tenant_id})
+
+
+@app.post("/api/v1/catalog/cross-sell/recommend")
+async def recommend_cross_sell(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Recommend complementary products for a customer."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("catalog", "recommend_cross_sell", {"tenant_id": tenant_id, **body})
+
+
+@app.post("/api/v1/walls")
+async def create_wall(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Create a pause wall or payment wall (gates features until resolved)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("walls", "create", {"tenant_id": tenant_id, **body})
+
+
+@app.get("/api/v1/walls/check")
+async def check_wall(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    customer_id: str = "",
+) -> dict[str, Any]:
+    """Check if a customer is behind a wall and which features are blocked."""
+    return await registry.invoke("walls", "check", {"customer_id": customer_id})
+
+
+@app.post("/api/v1/journeys")
+async def create_journey(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Create a multi-stage customer journey."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("journeys", "create", {"tenant_id": tenant_id, **body})
+
+
+@app.get("/api/v1/journeys")
+async def list_journeys(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("journeys", "list", {"tenant_id": tenant_id})
+
+
+@app.post("/api/v1/journeys/{journey_id}/stage")
+async def set_journey_stage(
+    journey_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Move a customer to a journey stage."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("journeys", "set_stage", {"tenant_id": tenant_id, "journey_id": journey_id, **body})
+
+
+@app.get("/api/v1/journeys/{journey_id}/stage-distribution")
+async def journey_stage_distribution(
+    journey_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """How many customers sit at each journey stage."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("journeys", "stage_distribution", {"tenant_id": tenant_id, "journey_id": journey_id})
+
+
+@app.post("/api/v1/attribution/outcome")
+async def record_attribution(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Record an outcome (retained/churned/recovered) attributed to a campaign."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("analytics.attribution", "record_outcome", {"tenant_id": tenant_id, **body})
+
+
+@app.get("/api/v1/attribution/campaigns")
+async def campaign_attribution(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Saved revenue and save rate per campaign."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("analytics.attribution", "campaign_impact", {"tenant_id": tenant_id})
+
+
+@app.post("/api/v1/anomalies/detect")
+async def detect_anomalies(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Detect metric anomalies against trailing average."""
+    return await registry.invoke("analytics.anomaly", "detect", body)
+
+
+@app.post("/api/v1/pricing-experiments")
+async def create_pricing_experiment(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Create a pricing experiment across price points."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("experiments.pricing", "create", {"tenant_id": tenant_id, **body})
+
+
+@app.get("/api/v1/pricing-experiments")
+async def list_pricing_experiments(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("experiments.pricing", "list", {"tenant_id": tenant_id})
+
+
+@app.post("/api/v1/pricing-experiments/{test_id}/results")
+async def record_pricing_result(
+    test_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Record exposure/conversion for a price point."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("experiments.pricing", "record_result", {"tenant_id": tenant_id, "test_id": test_id, **body})
+
+
+@app.get("/api/v1/pricing-experiments/{test_id}/analyze")
+async def analyze_pricing_experiment(
+    test_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("experiments.pricing", "analyze", {"tenant_id": tenant_id, "test_id": test_id})
+
+
+@app.post("/api/v1/qbr")
+async def generate_qbr(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Generate a QBR from account data, touchpoints, and health."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("cs.qbr", "generate", {"tenant_id": tenant_id, **body})
+
+
+@app.post("/api/v1/feedback/board")
+async def submit_voc(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Submit an item to the public voice-of-customer board."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("feedback.voc", "submit", {"tenant_id": tenant_id, **body})
+
+
+@app.get("/api/v1/feedback/board")
+async def list_voc(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("feedback.voc", "list", {"tenant_id": tenant_id})
+
+
+@app.post("/api/v1/feedback/board/{item_id}/upvote")
+async def upvote_voc(
+    item_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    return await registry.invoke("feedback.voc", "upvote", {"id": item_id})
+
+
+# ---------------------------------------------------------------------------
+# Universal presets (optional industry shortcuts — apply to ANY business)
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/v1/presets/applied")
+async def list_applied_presets(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("presets", "applied", {"tenant_id": tenant_id})
+
+
+@app.get("/api/v1/presets")
+async def list_presets(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, Any]:
+    """Industry presets: optional shortcuts. Each works on any business whose customer records have the needed fields."""
+    return await registry.invoke("presets", "list", {})
+
+
+@app.get("/api/v1/presets/{preset_id}")
+async def get_preset(
+    preset_id: str,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Full preset contents: customer fields, segments, campaigns, sequences."""
+    return await registry.invoke("presets", "get", {"preset_id": preset_id})
+
+
+@app.post("/api/v1/presets/{preset_id}/apply")
+async def apply_preset(
+    preset_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Apply a preset: creates its segments, campaigns, and sequences. Additive and fully editable."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("presets", "apply", {"tenant_id": tenant_id, "preset_id": preset_id})
+
+
+# --- Remaining typed endpoints for advanced services ---
+
+@app.get("/api/v1/customers/{customer_id}/touchpoints")
+async def list_customer_touchpoints(
+    customer_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    return await registry.invoke("customers.360", "list_touchpoints", {"customer_id": customer_id})
+
+
+@app.get("/api/v1/customers/{customer_id}/recordings")
+async def list_customer_recordings(
+    customer_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    return await registry.invoke("customers.360", "list_recordings", {"customer_id": customer_id})
+
+
+@app.get("/api/v1/customers/{customer_id}/enrichment")
+async def get_customer_enrichment(
+    customer_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    return await registry.invoke("customers.360", "get_enrichment", {"id": customer_id})
+
+
+@app.post("/api/v1/service-due/{reminder_id}/reminded")
+async def mark_service_reminded(
+    reminder_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    return await registry.invoke("customers.service_due", "mark_reminded", {"reminder_id": reminder_id})
+
+
+@app.post("/api/v1/goals/{goal_id}/progress")
+async def update_goal_progress(
+    goal_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Update a goal's current value."""
+    return await registry.invoke("goals", "update_progress", {"goal_id": goal_id, **body})
+
+
+@app.delete("/api/v1/goals/{goal_id}")
+async def delete_goal(
+    goal_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    return await registry.invoke("goals", "delete", {"goal_id": goal_id})
+
+
+@app.post("/api/v1/feedback/board/{item_id}/status")
+async def set_voc_status(
+    item_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Set roadmap status on a feedback item (open/planned/shipped/closed)."""
+    return await registry.invoke("feedback.voc", "set_status", {"id": item_id, **body})
+
+
+@app.get("/api/v1/experiments/{experiment_id}")
+async def get_experiment(
+    experiment_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("experiments.ab", "get", {"tenant_id": tenant_id, "experiment_id": experiment_id})
+
+
+@app.post("/api/v1/experiments/{experiment_id}/notes")
+async def annotate_experiment(
+    experiment_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Add a note to an experiment/campaign to track metric impact (Trial Insights)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("experiments.ab", "annotate", {"tenant_id": tenant_id, "experiment_id": experiment_id, **body})
+
+
+@app.get("/api/v1/sequences/{sequence_id}")
+async def get_sequence(
+    sequence_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    return await registry.invoke("automation.sequences", "get", {"sequence_id": sequence_id})
+
+
+@app.post("/api/v1/walls/resolve")
+async def resolve_wall(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Resolve a wall (payment made, subscription resumed)."""
+    return await registry.invoke("walls", "resolve", body)
+
+
+@app.get("/api/v1/walls")
+async def list_walls(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("walls", "list", {"tenant_id": tenant_id})
+
+
+@app.get("/api/v1/journeys/{journey_id}")
+async def get_journey(
+    journey_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("journeys", "get", {"tenant_id": tenant_id, "journey_id": journey_id})
+
+
+@app.get("/api/v1/attribution/customers/{customer_id}")
+async def attribution_for_customer(
+    customer_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Which touchpoints and campaigns touched this customer."""
+    return await registry.invoke("analytics.attribution", "for_customer", {"customer_id": customer_id})
+
+
+@app.get("/api/v1/qbr")
+async def list_qbrs(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("cs.qbr", "list", {"tenant_id": tenant_id})
+
+
+@app.get("/api/v1/benchmarks/{industry}")
+async def get_benchmark_industry(
+    industry: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    return await registry.invoke("benchmarks", "set_industry", {"industry": industry})
+
+
+@app.get("/api/v1/service-due/list")
+async def list_service_due(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    within_days: int = 7,
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("customers.service_due", "list_due", {"tenant_id": tenant_id, "within_days": within_days})
+
+
+# ---------------------------------------------------------------------------
+# Automation: scheduled reports, flow editor, cancel-flow API, bots, replay, surveys, export
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/v1/reports/scheduler/run-due")
+async def run_due_scheduled_reports(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Run all due scheduled reports and email results (Baremetrics Email Reports)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("reports.scheduler", "run_due", {"tenant_id": tenant_id})
+
+
+@app.get("/api/v1/reports/scheduler/due")
+async def list_due_scheduled_reports(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("reports.scheduler", "due", {"tenant_id": tenant_id})
+
+
+# --- Flow editor (no-code graph) ---
+
+@app.post("/api/v1/flow-editor/graphs")
+async def create_flow_graph(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Create a flow graph (nodes + edges) for the visual editor."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("flows.editor", "create_graph", {"tenant_id": tenant_id, **body})
+
+
+@app.get("/api/v1/flow-editor/graphs")
+async def list_flow_graphs(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("flows.editor", "list", {"tenant_id": tenant_id})
+
+
+@app.get("/api/v1/flow-editor/graphs/{graph_id}")
+async def get_flow_graph(
+    graph_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    return await registry.invoke("flows.editor", "get_graph", {"graph_id": graph_id})
+
+
+@app.patch("/api/v1/flow-editor/graphs/{graph_id}")
+async def update_flow_graph(
+    graph_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Update nodes/edges of a flow graph."""
+    return await registry.invoke("flows.editor", "update_graph", {"graph_id": graph_id, **body})
+
+
+@app.post("/api/v1/flow-editor/graphs/{graph_id}/validate")
+async def validate_flow_graph(
+    graph_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Validate graph: single trigger, no cycles, known services, connected."""
+    return await registry.invoke("flows.editor", "validate", {"graph_id": graph_id})
+
+
+@app.post("/api/v1/flow-editor/graphs/{graph_id}/publish")
+async def publish_flow_graph(
+    graph_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Compile a validated graph into a workflow definition."""
+    return await registry.invoke("flows.editor", "publish", {"graph_id": graph_id})
+
+
+# --- Cancel flow public API (embed in client apps) ---
+
+
+@app.post("/api/v1/cancel-flow/start")
+async def cancel_flow_start(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Start a cancel session for a customer (Churnkey SDK parity)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("cancel_flow.api", "start", {"tenant_id": tenant_id, **body})
+
+
+@app.post("/api/v1/cancel-flow/sessions/{session_id}/offers")
+async def cancel_flow_offers(
+    session_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Get AI-recommended + catalog offers for a cancel session."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("cancel_flow.api", "offers", {"tenant_id": tenant_id, "session_id": session_id, **body})
+
+
+@app.post("/api/v1/cancel-flow/sessions/{session_id}/select")
+async def cancel_flow_select(
+    session_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Select an offer in a cancel session."""
+    return await registry.invoke("cancel_flow.api", "select", {"session_id": session_id, **body})
+
+
+@app.post("/api/v1/cancel-flow/sessions/{session_id}/confirm")
+async def cancel_flow_confirm(
+    session_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Confirm the selected offer (pause/downgrade/cancel)."""
+    return await registry.invoke("cancel_flow.api", "confirm", {"session_id": session_id, **body})
+
+
+# --- Slack/Teams bot ---
+
+
+@app.post("/api/v1/bot/command")
+async def bot_command(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Handle a Slack/Teams slash command: /at-risk, /renewals, /mrr, /nps, /alerts, /churn, /help."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("integrations.bot", "handle_command", {"tenant_id": tenant_id, **body})
+
+
+# --- Session replay + micro-surveys ---
+
+
+@app.post("/api/v1/replay/ingest")
+async def replay_ingest(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Ingest a session replay event (click, navigation, error, custom)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("session.replay", "ingest", {"tenant_id": tenant_id, **body})
+
+
+@app.get("/api/v1/replay/sessions/{session_id}")
+async def replay_get_session(
+    session_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    return await registry.invoke("session.replay", "get_session", {"session_id": session_id})
+
+
+@app.post("/api/v1/micro-surveys")
+async def create_micro_survey(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Create an in-app micro-survey triggered by a customer action (Churnkey Pulse)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("surveys.micro", "create", {"tenant_id": tenant_id, **body})
+
+
+@app.post("/api/v1/micro-surveys/trigger")
+async def micro_survey_trigger(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Given a customer action, return surveys to show."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("surveys.micro", "trigger", {"tenant_id": tenant_id, **body})
+
+
+@app.post("/api/v1/micro-surveys/{survey_id}/respond")
+async def micro_survey_respond(
+    survey_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    return await registry.invoke("surveys.micro", "respond", {"survey_id": survey_id, **body})
+
+
+@app.get("/api/v1/micro-surveys/{survey_id}/results")
+async def micro_survey_results(
+    survey_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    return await registry.invoke("surveys.micro", "results", {"survey_id": survey_id})
+
+
+# --- Universal export ---
+
+
+@app.get("/api/v1/export/datasets")
+async def export_datasets(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, Any]:
+    """List all exportable datasets."""
+    return await registry.invoke("export", "datasets", {})
+
+
+@app.post("/api/v1/export")
+async def export_dataset(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Export any dataset to CSV or JSON (ChartMogul export parity)."""
+    return await registry.invoke("export", "export", body)
+
+
+# ---------------------------------------------------------------------------
+# Help + interactive demo
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/v1/help")
+async def help_list(request: Request, user: Annotated[CurrentUser, Depends(get_current_user)]) -> Any:
+    """List all in-app help articles (tooltip per feature)."""
+    return maybe_html(request, await registry.invoke("help", "list", {}), "Help")
+
+
+@app.get("/api/v1/help/search")
+async def help_search(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    q: str = "",
+) -> dict[str, Any]:
+    """Search help articles."""
+    return await registry.invoke("help", "search", {"q": q})
+
+
+@app.get("/api/v1/help/{article_id}")
+async def help_get(
+    article_id: str,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Get one help article with related links."""
+    return await registry.invoke("help", "context", {"context": article_id})
+
+
+@app.post("/api/v1/demo/run")
+async def demo_run(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Run the interactive demo end-to-end: seed customers, scan due services,
+    create + run a campaign, schedule reminders, save a report."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("demo", "run", {"tenant_id": tenant_id})
+
+
+@app.get("/api/v1/demo/scenario")
+async def demo_scenario(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, Any]:
+    """What the demo does, step by step."""
+    return await registry.invoke("demo", "scenario", {})
+
+
+@app.get("/api/v1/demo/history")
+async def demo_history(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("demo", "history", {"tenant_id": tenant_id})
+
+
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+
+
+class CustomerImportRequest(BaseModel):
+    csv: str
+    mapping: dict[str, str] = Field(default_factory=dict)
+
+
+@app.post("/api/v1/customers/import")
+async def import_customers_csv(
+    body: CustomerImportRequest,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Import customers from CSV with column mapping (auto-suggested if omitted)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("data.transfer", "import_customers", {"tenant_id": tenant_id, "csv": body.csv, "mapping": body.mapping})
+
+
+@app.post("/api/v1/customers/map-columns")
+async def map_customer_columns(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    columns: list[str] = Body(...),
+) -> dict[str, Any]:
+    """Suggest CSV column -> customer field mapping."""
+    return await registry.invoke("data.transfer", "suggest_mapping", {"columns": columns})
+
+
+@app.get("/api/v1/customers/export")
+async def export_customers(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    format: str = "csv",
+) -> dict[str, Any]:
+    """Export customers as CSV or JSON (downloadable)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("data.transfer", "export_customers", {"tenant_id": tenant_id, "format": format})
+
+
+@app.get("/api/v1/campaigns/export")
+async def export_campaigns(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    format: str = "csv",
+) -> dict[str, Any]:
+    """Export campaigns as CSV or JSON."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("data.transfer", "export_campaigns", {"tenant_id": tenant_id, "format": format})
+
+
+@app.post("/api/v1/campaigns/import")
+async def import_campaigns(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Import campaign definitions from rows (CSV-parsed JSON)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("data.transfer", "import_campaigns", {"tenant_id": tenant_id, "rows": body.get("rows", [])})
+
+
+@app.get("/api/v1/data-transfer/history")
+async def data_transfer_history(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("data.transfer", "history", {"tenant_id": tenant_id})
+
+
+# ---------------------------------------------------------------------------
+# Connectors: real sync with popular services (Stripe, HubSpot, Salesforce, Zendesk, ...)
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/v1/connectors")
+async def connectors_supported(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, Any]:
+    """List supported connectors and what they sync."""
+    return await registry.invoke("connectors", "supported", {})
+
+
+@app.post("/api/v1/connectors/{provider}/sync")
+async def connector_sync(
+    provider: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Sync data from a provider (stripe, hubspot, salesforce, zendesk, mixpanel, ga, intercom, segment)."""
+    tenant_id = current_tenant(request, user)
+    action = f"{provider}_sync" if provider != "segment" else "segment_track"
+    if provider == "segment":
+        body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+        return await registry.invoke("connectors", "segment_track", {"tenant_id": tenant_id, **body})
+    return await registry.invoke("connectors", action, {"tenant_id": tenant_id})
+
+
+@app.get("/api/v1/connectors/syncs")
+async def connector_sync_history(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("connectors", "sync_history", {"tenant_id": tenant_id})
+
+
+# ---------------------------------------------------------------------------
+# Pain-point catalog: which user pains each workflow fixes
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/v1/pains")
+async def pain_catalog_endpoint(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> Any:
+    """Map of end-user pains -> the workflows that fix them. Shows full coverage."""
+    from retention_analytics_advanced.pains import pain_catalog
+
+    catalog = pain_catalog()
+    # Annotate with whether each workflow is actually registered
+    wf_ids = {d.id for d in engine.list_definitions()}
+    for pid, p in catalog["pains"].items():
+        p["workflows_registered"] = [w for w in p["workflows"] if w in wf_ids]
+        p["covered"] = len(p["workflows_registered"]) > 0
+    covered = sum(1 for p in catalog["pains"].values() if p["covered"])
+    data = {"status": "ok", "total_pains": catalog["total"], "covered": covered, **catalog}
+    if wants_html(request):
+        # Render pains grouped by category as cards
+        cards = ""
+        for cat, items in catalog["by_category"].items():
+            chips = "".join(
+                f"<tr><td><b>{html.escape(p['id'])}</b></td><td>{html.escape(p['pain'])}</td>"
+                f"<td><span class='chip'>{html.escape(', '.join(p['workflows']))}</span></td>"
+                f"<td>{'✅' if catalog['pains'][p['id']]['covered'] else '❌'}</td></tr>"
+                for p in items
+            )
+            cards += f"<section><h2>{html.escape(cat)} ({len(items)})</h2><table><tr><th>pain</th><th>what the user feels</th><th>workflow</th><th>covered</th></tr>{chips}</table></section>"
+        from apps.api.htmlview import page
+        return page("Pain coverage", f"<p style='color:#64748b;font-size:13px'>{covered}/{catalog['total']} pains covered by a registered workflow</p>" + cards)
+    return data
+
+
+@app.get("/api/v1/pains/{pain_id}")
+async def pain_detail(
+    pain_id: str,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Detail on one pain: what the customer feels, which workflows fix it, the trigger event."""
+    from retention_analytics_advanced.pains import PAIN_CATALOG
+
+    if pain_id not in PAIN_CATALOG:
+        raise HTTPException(status_code=404, detail=f"unknown pain: {pain_id}")
+    p = PAIN_CATALOG[pain_id]
+    wf_ids = {d.id for d in engine.list_definitions()}
+    p = dict(p)
+    p["workflows_registered"] = [w for w in p["workflows"] if w in wf_ids]
+    p["covered"] = len(p["workflows_registered"]) > 0
+    return {"status": "ok", "pain": {"id": pain_id, **p}}
+
+
+# ---------------------------------------------------------------------------
+# Generic service-action proxy — guarantees every registered action is reachable
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/v1/actions/{service_name}/{action_name}")
+async def invoke_service_action(
+    service_name: str,
+    action_name: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Invoke any registered service action with a JSON payload.
+
+    This is the registry-driven escape hatch: every action on every service
+    (65 services) is reachable, so no capability is stranded behind a missing
+    route. Typed convenience routes exist for the common cases.
+    """
+    tenant_id = current_tenant(request, user)
+    payload = dict(body)
+    payload.setdefault("tenant_id", tenant_id)
+    try:
+        return await registry.invoke(service_name, action_name, payload)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.warning("service_action.failed", service=service_name, action=action_name, error=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/v1/actions")
+async def list_service_actions(request: Request, user: Annotated[CurrentUser, Depends(get_current_user)]) -> Any:
+    """List every service and its callable actions — the full capability surface."""
+    data = {
+        "status": "ok",
+        "count": len(registry.list_services()),
+        "services": [
+            {
+                "name": name,
+                "version": registry.get(name).version,
+                "metadata": registry.get(name).metadata,
+                "actions": sorted(registry.get(name).actions.keys()),
+            }
+            for name in registry.list_services()
+        ],
+    }
+    return maybe_html(request, data, "Action catalog")
 
 
 # ---------------------------------------------------------------------------
@@ -909,3 +3408,23 @@ def _run_payload(run: WorkflowRun) -> dict[str, Any]:
 
 
 __all__ = ["app", "engine", "registry", "trigger_service", "DEFAULT_TENANT"]
+
+
+# ---------------------------------------------------------------------------
+# Route ordering: static paths must be registered before parameterized paths
+# with the same prefix, otherwise /api/v1/customers/import is captured by
+# /api/v1/customers/{customer_id}. Reorder at import time.
+# ---------------------------------------------------------------------------
+
+def _route_sort_key(route):
+    path = getattr(route, 'path', '')
+    has_param = '{' in path
+    # Group by the shared parent prefix so /api/v1/customers/import and
+    # /api/v1/customers/{id} land in the same group, static first.
+    if has_param:
+        prefix = path.split('{')[0]
+    else:
+        prefix = path.rsplit('/', 1)[0] + '/'
+    return (prefix, 0 if not has_param else 1, path)
+
+app.router.routes.sort(key=_route_sort_key)

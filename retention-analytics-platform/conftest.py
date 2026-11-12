@@ -17,4 +17,13 @@ for _p in (str(_ROOT), str(_SHARED)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-pytest_plugins = ["shared.testing.conftest", "shared.testing.playwright.conftest"]
+# Only load shared testing plugins that actually exist in this checkout.
+_plugins: list[str] = []
+for _plug in ("shared.testing.conftest", "shared.testing.playwright.conftest"):
+    try:
+        __import__(_plug)
+        _plugins.append(_plug)
+    except ImportError:
+        pass
+
+pytest_plugins = _plugins

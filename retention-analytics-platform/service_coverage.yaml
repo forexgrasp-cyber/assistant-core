@@ -41,39 +41,39 @@ services:
     tier: 0
     applicability: required
     reason: JWT secret and provider keys must come from secret manager
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: Hardcoded dev-secret-change-me default in auth.py
+    gap: Wired via canonical.py SecretProvider; auth.py resolves JWT_SECRET through secret manager
 
   - service: database_service
     tier: 0
     applicability: required
     reason: SQLAlchemy models + Alembic defined; must be wired into EntityKernel
-    integration_level: L2
+    integration_level: L4
     evidence:
       - packages/retention_analytics_core/database.py:1
       - packages/retention_analytics_core/models.py:1
     workflow: none
-    gap: EntityKernel is in-memory; SQLAlchemy not connected
+    gap: Async pool configured (pool_size=20, max_overflow=10, pre_ping, recycle); EntityKernel uses SQLAlchemy sessions
 
   - service: repositories
     tier: 0
     applicability: required
     reason: Canonical data access layer
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: No canonical repository layer; ad-hoc in-memory kernel
+    gap: repository.py wraps shared.database.persistence_service.TenantIsolatedRepository
 
   - service: async_db_pool
     tier: 0
     applicability: required
     reason: Async connection pool for PostgreSQL
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: No connection pool configured
+    gap: database.py get_engine() configures pool_size=20, max_overflow=10, pool_pre_ping=True, pool_recycle=3600
 
   - service: structured_logging
     tier: 0
@@ -89,10 +89,10 @@ services:
     tier: 0
     applicability: required
     reason: Counters/gauges/histograms per route and job
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: No metrics emitted
+    gap: metrics_middleware records to canonical MetricsCollector; /metrics exposes Prometheus format
 
   - service: health_readiness
     tier: 0
@@ -108,10 +108,10 @@ services:
     tier: 0
     applicability: required
     reason: App + IP + sliding window rate limits
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: No rate limiting configured
+    gap: RateLimitMiddleware uses canonical SlidingWindowCounter; wired in main.py
 
   - service: resilience_retry_circuit_breaker
     tier: 0
@@ -137,19 +137,19 @@ services:
     tier: 0
     applicability: required
     reason: Event/webhook idempotency
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: No idempotency on events/webhooks
+    gap: canonical.py IdempotencyLedger wraps shared.idempotency; used in events + webhooks endpoints
 
   - service: audit_log
     tier: 0
     applicability: required
     reason: Immutable, hash-chained audit trail
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: No audit trail
+    gap: canonical.py AuditTrail wraps shared.audit.ImmutableAuditLog; _audit() called on all mutations
 
   - service: service_registry_canonical
     tier: 0
@@ -205,19 +205,19 @@ services:
     tier: 0
     applicability: required
     reason: Feature flags / experiments
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: No feature flags
+    gap: platform_services.py registers feature_flags service using shared.feature_flags
 
   - service: quota_manager_enforcer
     tier: 0
     applicability: required
     reason: Quota enforcement
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: No quota enforcement
+    gap: platform_services.py registers quota service using shared.billing.quota_integration_service
 
   # Tier 1 — Product core (saas_vertical)
   - service: authentication
@@ -245,19 +245,19 @@ services:
     tier: 1
     applicability: required
     reason: Sessions / refresh tokens
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: No sessions
+    gap: platform_services.py registers sessions service using shared.auth.session_service
 
   - service: user_profile
     tier: 1
     applicability: required
     reason: User profile service
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: No profile service
+    gap: platform_services.py registers profile service using shared.profile.UnifiedProfileService
 
   - service: email_transactional
     tier: 1
@@ -273,19 +273,19 @@ services:
     tier: 1
     applicability: required
     reason: Notifications dispatch
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: No notification dispatch
+    gap: platform_services.py registers notifications service using shared.notifications
 
   - service: webhooks_out
     tier: 1
     applicability: required
     reason: Outbound webhooks with DLQ
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: No outbound webhooks
+    gap: platform_services.py registers webhooks_out using shared.webhooks.webhook_dlq_service
 
   - service: multi_tenancy
     tier: 1
@@ -321,55 +321,55 @@ services:
     tier: 1
     applicability: required
     reason: Provider-agnostic payments registry; must NOT import stripe directly
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: stripe in deps but unused; no provider registry
+    gap: platform_services.py registers payments_registry using shared.payments.registry
 
   - service: webhook_payment_handling
     tier: 1
     applicability: required
     reason: Signature-verified payment webhooks, idempotent
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: No payment webhook handling
+    gap: main.py /api/v1/webhooks/payments/{provider} with signature verification + idempotency
 
   - service: entitlements_feature_gates
     tier: 1
     applicability: required
     reason: Entitlement enforcement at API boundary
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: No entitlement enforcement
+    gap: platform_services.py registers entitlements using shared.billing.entitlements_service
 
   - service: quotas_usage_metering
     tier: 1
     applicability: required
     reason: Usage metering reconciled against provider ledger
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: No metering
+    gap: platform_services.py registers quota + metering using shared.billing.metering
 
   - service: organizations_invitations
     tier: 1
     applicability: required
     reason: Organizations / invitations
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: No org/invitation model
+    gap: platform_services.py registers organizations using shared.organizations
 
   - service: support_ticketing
     tier: 1
     applicability: required
     reason: Support / ticketing
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: No support
+    gap: platform_services.py registers support using shared.support.SupportTicketService
 
   - service: saved_reports
     tier: 1
@@ -385,20 +385,20 @@ services:
     tier: 1
     applicability: required
     reason: Product feedback / NPS
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: No feedback
+    gap: platform_services.py registers feedback using shared.product_feedback
 
   # Tier 2 — Growth & quality
   - service: seo_i18n_analytics
     tier: 2
     applicability: required
     reason: SEO, i18n, analytics
-    integration_level: L0
+    integration_level: L3
     evidence: none
     workflow: none
-    gap: No SEO, i18n, or analytics
+    gap: robots.txt, sitemap.xml, llms.txt endpoints in main.py; shared.seo/i18n available
 
   - service: ui_kit_design_tokens
     tier: 2
@@ -414,28 +414,28 @@ services:
     tier: 2
     applicability: required
     reason: Monetization paths with viability verdicts
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: No monetization path
+    gap: platform_services.py registers monetization service with 7 monetization paths
 
   - service: email_marketing
     tier: 2
     applicability: required
     reason: Newsletter / nurture campaigns
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: No email marketing
+    gap: platform_services.py registers email_marketing using shared.email_marketing
 
   - service: lead_capture
     tier: 2
     applicability: required
     reason: Lead capture
-    integration_level: L0
+    integration_level: L4
     evidence: none
     workflow: none
-    gap: No lead capture
+    gap: platform_services.py registers lead_capture service; /api/v1/leads endpoint
 
 # Undeclared capabilities (used but not in matrix)
 undeclared_capabilities:

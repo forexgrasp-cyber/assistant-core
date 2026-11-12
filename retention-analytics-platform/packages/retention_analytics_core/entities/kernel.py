@@ -17,6 +17,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from retention_analytics_core.models import EntityRecordModel, EntitySchemaModel
 
@@ -167,6 +168,7 @@ class EntityKernel:
                 f"Record '{record_id}' not found in schema '{schema_id}'"
             )
         model.data.update(data)
+        flag_modified(model, "data")
         await self._session.flush()
         return _record_to_dataclass(model)
 

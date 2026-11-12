@@ -34,15 +34,28 @@ class PlatformSettings(BaseSettings):
     debug: bool = Field(default=False)
     data_dir: str = Field(default="data")
 
+    # Service ports (non-standard, centralized)
+    api_port: int = Field(default=47319)
+    mcp_port: int = Field(default=47322)
+    web_customer_port: int = Field(default=47320)
+    web_dev_port: int = Field(default=47321)
+    postgres_port: int = Field(default=47323)
+    redis_port: int = Field(default=47324)
+    clickhouse_port_http: int = Field(default=47325)
+
+    @property
+    def api_base_url(self) -> str:
+        return f"http://127.0.0.1:{self.api_port}"
+
     # Database
-    database_url: str = Field(default="postgresql+asyncpg://postgres:postgres@localhost:5432/retention_analytics")
+    database_url: str = Field(default="postgresql+asyncpg://postgres:postgres@localhost:47323/retention_analytics")
     clickhouse_host: str = Field(default="localhost")
-    clickhouse_port: int = Field(default=8123)
+    clickhouse_port: int = Field(default=47325)
 
     # Cache / queue
-    redis_url: str = Field(default="redis://localhost:6379/0")
-    celery_broker_url: str = Field(default="redis://localhost:6379/1")
-    celery_result_backend: str = Field(default="redis://localhost:6379/2")
+    redis_url: str = Field(default="redis://localhost:47324/0")
+    celery_broker_url: str = Field(default="redis://localhost:47324/1")
+    celery_result_backend: str = Field(default="redis://localhost:47324/2")
 
     # Auth / tenancy
     workos_api_key: str | None = Field(default=None)
@@ -64,10 +77,18 @@ class PlatformSettings(BaseSettings):
     klaviyo_client_id: str | None = Field(default=None)
     shopify_api_key: str | None = Field(default=None)
 
-    # Feature flags
+    # Feature flags — consumed by feature_flags service and API gateway
     enable_workflows: bool = Field(default=True)
     enable_pipelines: bool = Field(default=True)
     enable_mcp: bool = Field(default=True)
+
+    @property
+    def workflows_enabled(self) -> bool:
+        return self.enable_workflows
+
+    @property
+    def mcp_enabled(self) -> bool:
+        return self.enable_mcp
 
     # Rate limiting
     rate_limit_per_minute: int = Field(default=60)

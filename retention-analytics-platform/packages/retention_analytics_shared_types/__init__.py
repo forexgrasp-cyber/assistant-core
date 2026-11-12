@@ -52,6 +52,52 @@ class EventType(str, Enum):
     REPORT_GENERATED = "report.generated"
     RETENTION_COHORT_READY = "retention.cohort_ready"
 
+    # Competitor-parity events (Baremetrics Recover/Cancel Insights, Churnkey Cancel Flows/Payment Recovery,
+    # ChurnZero health scores/playbooks, Vitally NPS/surveys)
+    PAYMENT_FAILED = "payment.failed"
+    PAYMENT_RECOVERED = "payment.recovered"
+    SUBSCRIPTION_PAUSED = "subscription.paused"
+    SUBSCRIPTION_DOWNGRADED = "subscription.downgraded"
+    SUBSCRIPTION_RENEWAL_DUE = "subscription.renewal_due"
+    TRIAL_ENDING = "trial.ending"
+    USAGE_DROPPED = "usage.dropped"
+    FEATURE_UNUSED = "feature.unused"
+    SEAT_OVERAGE = "account.seat_overage"
+    CLIENT_REACTIVATED = "client.reactivated"
+    NPS_SURVEY_DUE = "survey.nps_due"
+    CSAT_SURVEY_DUE = "survey.csat_due"
+    HEALTH_SCORE_LOW = "health.score_low"
+    ONBOARDING_MILESTONE = "onboarding.milestone"
+    REFERRAL_ELIGIBLE = "referral.eligible"
+    CANCEL_FLOW_STARTED = "cancel.flow_started"
+    ANNUAL_UPSELL_ELIGIBLE = "upsell.annual_eligible"
+
+    # Universal service-lifecycle events (any recurring service: oil change,
+    # beauty treatment, fitness membership, maintenance, prescriptions)
+    SERVICE_DUE_SOON = "service.due_soon"
+    SERVICE_OVERDUE = "service.overdue"
+    SERVICE_COMPLETED = "service.completed"
+    CROSS_SELL_ELIGIBLE = "cross_sell.eligible"
+    SEQUENCE_ENROLLED = "sequence.enrolled"
+    CES_LOW = "ces.low"
+    TOUCHPOINT_LOGGED = "touchpoint.logged"
+    SURVEY_RESPONDED = "survey.responded"
+
+    # Pain-point events (what the end user experiences)
+    AUTH_LOGIN_FAILED = "auth.login_failed"
+    APP_ERROR_OCCURRED = "app.error_occurred"
+    SUPPORT_TICKET_OPENED = "support.ticket_opened"
+    SUPPORT_TICKET_RESOLVED = "support.ticket_resolved"
+    BILLING_PRICE_CHANGED = "billing.price_changed"
+    BILLING_INVOICE_CREATED = "billing.invoice_created"
+    USAGE_QUOTA_NEAR_LIMIT = "usage.quota_near_limit"
+    ONBOARDING_NO_LOGIN = "onboarding.no_login"
+    ONBOARDING_STUCK = "onboarding.stuck"
+    INVENTORY_BACK_IN_STOCK = "inventory.back_in_stock"
+    PRICING_PRICE_DROPPED = "pricing.price_dropped"
+    SECURITY_SUSPICIOUS_LOGIN = "security.suspicious_login"
+    TEAM_INVITE_SENT = "team.invite_sent"
+
 
 class Channel(str, Enum):
     EMAIL = "email"

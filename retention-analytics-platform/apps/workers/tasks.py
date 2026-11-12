@@ -56,4 +56,22 @@ def generate_report_task(tenant_id: str, name: str, fmt: str = "pdf"):
     )
 
 
-__all__ = ["run_workflow_task", "ingest_event_task", "generate_report_task"]
+@celery_app.task(name="reports.run_scheduled")
+def run_scheduled_reports_task(tenant_id: str):
+    """Cron tick: run all due scheduled reports and email them (Baremetrics Email Reports)."""
+    from apps.api.main import registry
+
+    return _run_async(registry.invoke("reports.scheduler", "run_due", {"tenant_id": tenant_id}))
+
+
+@celery_app.task(name="service_due.scan")
+def scan_service_due_task(tenant_id: str, within_days: int = 7):
+    """Cron tick: scan customer records for services due/overdue and schedule reminders."""
+    from apps.api.main import registry
+
+    return _run_async(
+        registry.invoke("customers.service_due", "schedule_reminders", {"tenant_id": tenant_id, "within_days": within_days})
+    )
+
+
+__all__ = ["run_workflow_task", "ingest_event_task", "generate_report_task", "run_scheduled_reports_task", "scan_service_due_task"]

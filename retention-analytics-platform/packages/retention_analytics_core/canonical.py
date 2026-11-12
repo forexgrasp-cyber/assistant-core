@@ -113,16 +113,18 @@ class IdempotencyLedger:
 
         A prior record that is still ``pending`` means another caller holds
         the claim, so it is reported as a duplicate with no result yet.
+
+        ``check_and_set`` already unwraps the stored entry's ``result`` field,
+        so ``record`` here is the result dict directly (or ``None``).
         """
         claimed, record = self._store.check_and_set(key, tenant_id=tenant_id)
         if claimed:
             return True, None
-        prior = (record or {}).get("result")
-        if not isinstance(prior, dict):
+        if not isinstance(record, dict):
             return False, None
-        if prior.get("status") == "pending":
+        if record.get("status") == "pending":
             return False, None
-        return False, prior
+        return False, record
 
     def complete(self, key: str, result: dict[str, Any]) -> None:
         self._store.complete(key, result)

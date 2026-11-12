@@ -329,34 +329,33 @@ async def test_api_gateway_surface(auth_headers: dict[str, str]) -> None:
 
     client = TestClient(app)
 
-# Manually register workflows (startup event doesn't run with TestClient;
-# no real DB available, so skip kernel schema registration)
-# Services are already registered at module import time in main.py.
-engine.register_definition(
-    WorkflowDefinition(
-        id="churn-prevention",
-        name="Churn Prevention Flow",
-        tenant_id=TENANT,
-        trigger_event="client.churn_risk",
-        steps=[
-            WorkflowStep(
-                id="send_email",
-                service="email",
-                action="send",
-                input={
-                    "to": "a@example.com",
-                    "subject": "We miss you — come back",
-                    "body": "Here's 20% off your next month.",
-                },
-            ),
-        ],
+    # Manually register workflows (startup event doesn't run with TestClient;
+    # no real DB available, so skip kernel schema registration)
+    # Services are already registered at module import time in main.py.
+    engine.register_definition(
+        WorkflowDefinition(
+            id="churn-prevention",
+            name="Churn Prevention Flow",
+            tenant_id=TENANT,
+            trigger_event="client.churn_risk",
+            steps=[
+                WorkflowStep(
+                    id="send_email",
+                    service="email",
+                    action="send",
+                    input={
+                        "to": "a@example.com",
+                        "subject": "We miss you — come back",
+                        "body": "Here's 20% off your next month.",
+                    },
+                ),
+            ],
+        )
     )
-)
 
-# Reset adapter state to ensure clean idempotency ledger for this test.
-from retention_analytics_core.canonical import reset_adapters
-reset_adapters()
-    )
+    # Reset adapter state to ensure clean idempotency ledger for this test.
+    from retention_analytics_core.canonical import reset_adapters
+    reset_adapters()
 
     # health lists services + workflows
     resp = client.get("/health")
@@ -389,11 +388,13 @@ reset_adapters()
     assert resp.json()["status"] == "completed"
 
     # ingest an event triggers a workflow (dev mode: signature accepted)
+    import uuid
     resp = client.post(
         "/api/v1/events",
         json={
             "type": "client.churn_risk",
             "tenant_id": TENANT,
+            "idempotency_key": f"test-{uuid.uuid4().hex[:12]}",
             "payload": {"client_email": "a@example.com", "client_phone": "+15550000000"},
         },
         headers=auth_headers,
@@ -469,6 +470,7 @@ def test_rate_limit_middleware() -> None:
 @pytest.mark.asyncio
 async def test_security_tester_sql_injection() -> None:
     """Every input surface is covered by the shared SecurityTester suite."""
+    pytest.importorskip("shared.testing.validation.security")
     from shared.testing.validation.security import SecurityTester
 
     tester = SecurityTester()

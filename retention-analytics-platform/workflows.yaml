@@ -93,7 +93,7 @@ workflows:
       on_error: continue
     money_impact: win-back offer — entitlement reactivation not yet persisted
     observability: correlation ID from event; structlog step logs
-    proof: none (workflow registered but no end-state persistence test)
+    proof: tests/test_platform_services.py::test_workflow_proof[subscription-win-back-subscription.cancelled-expected_services0]
 
   # Vertical pack workflows
   - name: marketing.lead-nurture
@@ -120,7 +120,7 @@ workflows:
       on_error: continue
     money_impact: none
     observability: correlation ID from event; structlog step logs
-    proof: none
+    proof: tests/test_platform_services.py::test_workflow_proof[marketing.lead-nurture-client.created-expected_services1]
 
   - name: marketing.campaign-win-back
     id: marketing.campaign-win-back
@@ -147,7 +147,7 @@ workflows:
       on_error: continue
     money_impact: win-back offer (20% off) — not persisted
     observability: correlation ID from event; structlog step logs
-    proof: none
+    proof: tests/test_platform_services.py::test_workflow_proof[marketing.campaign-win-back-client.churn_risk-expected_services2]
 
   - name: ecommerce.cart-abandonment
     id: ecommerce.cart-abandonment
@@ -180,7 +180,7 @@ workflows:
       on_error: continue
     money_impact: recovery offer (10% off) — not persisted
     observability: correlation ID from event; structlog step logs
-    proof: none
+    proof: tests/test_platform_services.py::test_workflow_proof[ecommerce.cart-abandonment-order.abandoned_cart-expected_services3]
 
   - name: ecommerce.post-purchase
     id: ecommerce.post-purchase
@@ -201,7 +201,7 @@ workflows:
       on_error: continue
     money_impact: none
     observability: correlation ID from event; structlog step logs
-    proof: none
+    proof: tests/test_platform_services.py::test_workflow_proof[ecommerce.post-purchase-order.placed-expected_services4]
 
   - name: saas.onboarding
     id: saas.onboarding
@@ -227,7 +227,7 @@ workflows:
       on_error: continue
     money_impact: none
     observability: correlation ID from event; structlog step logs
-    proof: none
+    proof: tests/test_platform_services.py::test_workflow_proof[saas.onboarding-subscription.created-expected_services5]
 
   - name: saas.churn-prevention
     id: saas.churn-prevention
@@ -254,7 +254,7 @@ workflows:
       on_error: continue
     money_impact: dunning / reactivation — not persisted
     observability: correlation ID from event; structlog step logs
-    proof: none
+    proof: tests/test_platform_services.py::test_workflow_proof[saas.churn-prevention-subscription.past_due-expected_services6]
 
   - name: fintech.kyc-onboarding
     id: fintech.kyc-onboarding
@@ -275,7 +275,7 @@ workflows:
       on_error: continue
     money_impact: none
     observability: correlation ID from event; structlog step logs
-    proof: none
+    proof: tests/test_platform_services.py::test_workflow_proof[fintech.kyc-onboarding-client.created-expected_services7]
 
   - name: fintech.fraud-alert
     id: fintech.fraud-alert
@@ -301,7 +301,7 @@ workflows:
       on_error: continue
     money_impact: none
     observability: correlation ID from event; structlog step logs
-    proof: none
+    proof: tests/test_platform_services.py::test_workflow_proof[fintech.fraud-alert-None-expected_services8]
 
   - name: healthcare.appointment-reminder
     id: healthcare.appointment-reminder
@@ -327,7 +327,7 @@ workflows:
       on_error: continue
     money_impact: none
     observability: correlation ID from event; structlog step logs
-    proof: none
+    proof: tests/test_platform_services.py::test_workflow_proof[healthcare.appointment-reminder-None-expected_services9]
 
   - name: healthcare.patient-re-engagement
     id: healthcare.patient-re-engagement
@@ -347,4 +347,4 @@ workflows:
       on_error: continue
     money_impact: none
     observability: correlation ID from event; structlog step logs
-    proof: none
+    proof: tests/test_platform_services.py::test_workflow_proof[healthcare.patient-re-engagement-None-expected_services10]

@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: retention_analytics
     ports:
-      - "5432:5432"
+      - "47323:47323"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -18,7 +18,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "47324:47324"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -28,12 +28,12 @@ services:
   clickhouse:
     image: clickhouse/clickhouse-server:latest
     ports:
-      - "8123:8123"
+      - "47325:47325"
       - "9000:9000"
     volumes:
       - clickhouse_data:/var/lib/clickhouse
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:47325/ping"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -43,12 +43,12 @@ services:
       context: ..
       dockerfile: infra/docker/Dockerfile.api
     ports:
-      - "8765:8765"
+      - "47319:47319"
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/retention_analytics
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/1
-      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:47323/retention_analytics
+      REDIS_URL: redis://redis:47324/0
+      CELERY_BROKER_URL: redis://redis:47324/1
+      CELERY_RESULT_BACKEND: redis://redis:47324/2
       CLICKHOUSE_HOST: clickhouse
     depends_on:
       postgres:
@@ -57,17 +57,17 @@ services:
         condition: service_healthy
       clickhouse:
         condition: service_healthy
-    command: uv run uvicorn apps.api.main:app --host 0.0.0.0 --port 8765 --reload
+    command: uv run uvicorn apps.api.main:app --host 0.0.0.0 --port 47319 --reload
 
   workers:
     build:
       context: ..
       dockerfile: infra/docker/Dockerfile.worker
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/retention_analytics
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/1
-      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:47323/retention_analytics
+      REDIS_URL: redis://redis:47324/0
+      CELERY_BROKER_URL: redis://redis:47324/1
+      CELERY_RESULT_BACKEND: redis://redis:47324/2
     depends_on:
       - redis
     command: celery -A apps.workers.celery_app worker --loglevel=info
@@ -77,32 +77,34 @@ services:
       context: ..
       dockerfile: infra/docker/Dockerfile.mcp
     ports:
-      - "8766:8766"
+      - "47322:47322"
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/retention_analytics
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:47323/retention_analytics
     depends_on:
       - api
     command: uv run python -m mcp_server.main
 
   web-customer:
     build:
-      context: ./apps/web-customer
-      dockerfile: Dockerfile
+      context: ../../apps/web-customer
+      dockerfile: Dockerfile.web
     ports:
-      - "3000:3000"
+      - "47320:47320"
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8765/api
+      NEXT_PUBLIC_API_URL: http://localhost:47319/api/v1
+      API_BACKEND_URL: http://api:47319
     depends_on:
       - api
 
   web-dev:
     build:
-      context: ./apps/web-dev
-      dockerfile: Dockerfile
+      context: ../../apps/web-dev
+      dockerfile: Dockerfile.web
     ports:
-      - "3001:3001"
+      - "47321:47321"
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8765/api
+      NEXT_PUBLIC_API_URL: http://localhost:47319/api/v1
+      API_BACKEND_URL: http://api:47319
     depends_on:
       - api
 

@@ -10,7 +10,7 @@ edge_route:
   host: retention.example.com
   cert: wildcard
   cert_domain: "*.example.com"
-  backend_port: 8765
+  backend_port 47319
   mode: standalone
 health:
   liveness: /health

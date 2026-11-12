@@ -2,6 +2,75 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-gray-50 text-gray-900 antialiased;
+:root {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --border: #e2e8f0;
+  --text: #0f172a;
+  --text-2: #64748b;
+  --accent: #4f46e5;
+  --accent-soft: #eef2ff;
+  --sidebar-bg: #0f172a;
+  --sidebar-text: #cbd5e1;
+  --danger: #dc2626;
+  --ok: #059669;
 }
+
+html.dark {
+  --bg: #0b1220;
+  --surface: #131c2e;
+  --surface-2: #1b2740;
+  --border: #243049;
+  --text: #e2e8f0;
+  --text-2: #94a3b8;
+  --accent: #818cf8;
+  --accent-soft: #312e81;
+  --sidebar-bg: #070d1a;
+  --sidebar-text: #94a3b8;
+  --danger: #f87171;
+  --ok: #34d399;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  @apply antialiased;
+  transition: background-color .18s ease, color .18s ease;
+}
+
+/* Remap the common Tailwind palette classes onto the theme variables so the
+   whole app follows the theme without editing every page. */
+.bg-white { background-color: var(--surface) !important; }
+.bg-gray-50 { background-color: var(--bg) !important; }
+.bg-gray-100 { background-color: var(--surface-2) !important; }
+.bg-indigo-50 { background-color: var(--accent-soft) !important; }
+.bg-slate-900, .bg-slate-950 { background-color: var(--sidebar-bg) !important; }
+.text-gray-900 { color: var(--text) !important; }
+.text-gray-800 { color: var(--text) !important; }
+.text-gray-700 { color: var(--text) !important; }
+.text-gray-600 { color: var(--text) !important; }
+.text-gray-500 { color: var(--text-2) !important; }
+.text-gray-400 { color: var(--text-2) !important; }
+.border-gray-200, .border-gray-100, .border-gray-300 { border-color: var(--border) !important; }
+.hover\:bg-gray-50:hover { background-color: var(--surface-2) !important; }
+.hover\:bg-gray-100:hover { background-color: var(--surface-2) !important; }
+.divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: var(--border) !important; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Command palette + toast animations */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.animate-fade-in { animation: fadeIn .15s ease both; }
+.animate-slide-up { animation: slideUp .18s ease both; }
+
+/* Skeleton shimmer */
+@keyframes shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+.skeleton { background: linear-gradient(90deg, var(--surface-2) 25%, var(--border) 37%, var(--surface-2) 63%); background-size: 800px 100%; animation: shimmer 1.4s infinite; border-radius: 6px; }
+
+/* Focus ring */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

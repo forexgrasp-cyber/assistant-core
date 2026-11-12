@@ -1,43 +1,30 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import "./globals.css";
+import { LangProvider, useI18n } from "@/components/LangProvider";
+import { ToastProvider } from "@/components/ToastProvider";
+import CommandPalette from "@/components/CommandPalette";
+import Sidebar from "@/components/Sidebar";
 
 export const metadata: Metadata = {
-  title: "Customer Portal — Retention Analytics",
-  description: "Dashboards, campaigns, flows, reports for retention marketing",
+  title: "Retention Analytics — Customer Portal",
+  description:
+    "Stop churn before it happens. Automated retention workflows, multi-channel campaigns, and real-time analytics — all wired through one platform.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
-        <nav className="border-b border-gray-200 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between h-16 items-center">
-              <div className="flex items-center gap-2 font-bold text-gray-900">
-                <span className="bg-indigo-600 text-white px-2 py-0.5 rounded text-xs">RA</span>
-                <span>Retention Analytics</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <a href="/dashboard" className="text-sm font-medium text-gray-600 hover:text-indigo-600">
-                  Dashboard
-                </a>
-                <a href="/campaigns" className="text-sm font-medium text-gray-600 hover:text-indigo-600">
-                  Campaigns
-                </a>
-                <a href="/flows" className="text-sm font-medium text-gray-600 hover:text-indigo-600">
-                  Flows
-                </a>
-                <a href="/reports" className="text-sm font-medium text-gray-600 hover:text-indigo-600">
-                  Reports
-                </a>
-                <a href="/settings" className="text-sm font-medium text-gray-600 hover:text-indigo-600">
-                  Settings
-                </a>
-              </div>
+        <LangProvider>
+          <ToastProvider>
+            <div className="min-h-screen flex">
+              <Sidebar />
+              <main className="flex-1 p-8 overflow-y-auto">{children}</main>
             </div>
-          </div>
-        </nav>
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">{children}</main>
+            <CommandPalette />
+          </ToastProvider>
+        </LangProvider>
       </body>
     </html>
   );

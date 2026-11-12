@@ -4,7 +4,7 @@ The gateway wires every service into workflows and pipelines and exposes them
 to the frontend. Run with:
 
 ```bash
-uv run uvicorn app.main:app --reload --port 8765
+uv run uvicorn app.main:app --reload --port 47319
 ```
 
 ## Endpoints
@@ -25,7 +25,7 @@ The `churn-prevention` workflow is bound to `client.churn_risk`. Ingesting that
 event runs: compute retention → send email → send SMS.
 
 ```bash
-curl -X POST http://localhost:8765/api/v1/events \
+curl -X POST http://localhost:47319/api/v1/events \
   -H 'Content-Type: application/json' \
   -d '{"type":"client.churn_risk","tenant_id":"00000000-0000-0000-0000-000000000001","payload":{"client_email":"a@example.com","client_phone":"+15550000000"}}'
 ```

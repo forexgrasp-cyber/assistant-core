@@ -1,54 +1,94 @@
 "use client";
 
-import { useState } from "react";
-import { Layers, Folder, Globe } from "lucide-react";
+import { useEffect, useState } from "react";
+import { apiGet, apiPost } from "@/lib/api";
 
-const packs = [
-  { id: "marketing", name: "Marketing", description: "Campaigns, audiences, lead scoring", icon: <Globe /> },
-  { id: "ecommerce", name: "Ecommerce", description: "Products, orders, subscriptions, cart recovery", icon: <Layers /> },
-  { id: "saas", name: "SaaS", description: "Subscriptions, plans, dunning, activation", icon: <Folder /> },
-  { id: "fintech", name: "Fintech", description: "Wallets, transactions, KYC, fraud", icon: <ShieldIcon /> },
-  { id: "healthcare", name: "Healthcare", description: "Patients, appointments, compliance", icon: <Folder /> },
-];
+export default function VerticalsPage() {
+  const [presets, setPresets] = useState<any[]>([]);
+  const [selected, setSelected] = useState<any>(null);
+  const [applied, setApplied] = useState<any[]>([]);
+  const [services, setServices] = useState<any[]>([]);
 
-function ShieldIcon() {
+  const load = () => {
+    apiGet("/presets").then((d: any) => {
+      setPresets(d.presets ?? []);
+      if (d.presets?.length && !selected) openPreset(d.presets[0].id);
+    }).catch(() => {});
+    apiGet("/presets/applied").then((d: any) => setApplied(d.applications ?? [])).catch(() => {});
+    apiGet("/services").then((d: any) => setServices(d.services ?? [])).catch(() => {});
+  };
+
+  const openPreset = async (id: string) => {
+    const r: any = await apiGet(`/presets/${id}`);
+    setSelected(r.preset);
+  };
+
+  const apply = async (id: string) => {
+    await apiPost(`/presets/${id}/apply`);
+    load();
+  };
+
+  useEffect(() => { load(); }, []);
+
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
-    </svg>
-  );
-}
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Industry Presets</h1>
+        <p className="text-gray-500 text-sm mt-1 max-w-3xl">
+          <b>Not structural verticals.</b> A preset is a shortcut bundle — customer fields, segments, campaigns, drip sequences.
+          Apply any to <b>any</b> business whose customer records have the needed fields. The engine underneath is universal.
+        </p>
+      </div>
 
-export default function VerticalPacks() {
-  const [selected, setSelected] = useState<string | null>(null);
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="space-y-2">
+          {presets.map((p) => (
+            <button key={p.id} onClick={() => openPreset(p.id)}
+              className={`w-full text-left p-3 rounded-lg border transition ${selected?.id === p.id ? "border-emerald-500 bg-emerald-50" : "border-gray-200 bg-white hover:border-gray-300"}`}>
+              <p className="font-medium text-sm">{p.name}</p>
+              <p className="text-xs text-gray-400 mt-1">{p.segments} segments · {p.campaigns} campaigns · {p.sequences} sequences · {p.fields} fields</p>
+            </button>
+          ))}
+        </div>
 
-  return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">Vertical Packs</h1>
-      <p className="text-gray-500 mb-6">Pluggable domain packs with entities, workflows, and reports. Zero vertical logic in core.</p>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {packs.map((p) => (
-          <div
-            key={p.id}
-            onClick={() => setSelected(selected === p.id ? null : p.id)}
-            className={`bg-white p-5 rounded border border-gray-200 shadow-sm cursor-pointer hover:border-indigo-300 transition ${selected === p.id ? "border-indigo-500 bg-indigo-50" : ""}`}
-          >
-            <div className="p-2 bg-gray-100 rounded text-gray-600 mb-3">{p.icon}</div>
-            <h3 className="font-semibold text-gray-900">{p.name}</h3>
-            <p className="text-xs text-gray-500 mt-2">{p.description}</p>
-            {selected === p.id && (
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <p className="text-sm text-gray-600 mb-3">Includes:</p>
-                <ul className="space-y-1 text-xs text-gray-500">
-                  <li>Entities: clients, campaigns, flows</li>
-                  <li>Workflows: retention, win-back</li>
-                  <li>Reports: cohort, RFM</li>
-                </ul>
+        {selected && (
+          <div className="lg:col-span-2 bg-white rounded-lg border border-gray-200 shadow-sm p-5 space-y-3">
+            <div>
+              <h2 className="font-semibold text-gray-900">{selected.name}</h2>
+              <p className="text-sm text-gray-600 mt-1">{selected.description}</p>
+            </div>
+            <div>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase mb-1">Required customer fields</h3>
+              <div className="flex flex-wrap gap-1">
+                {Object.entries(selected.customer_fields ?? {}).map(([k, v]) => (
+                  <span key={k} className="text-xs bg-gray-100 px-2 py-0.5 rounded font-mono">{k}</span>
+                ))}
               </div>
-            )}
+            </div>
+            <div>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase mb-1">Segments</h3>
+              {(selected.segments ?? []).map((s: any) => (
+                <p key={s.name} className="text-xs font-mono bg-gray-50 px-2 py-1 rounded mb-1">{s.name} — {JSON.stringify(s.criteria)}</p>
+              ))}
+            </div>
+            <div>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase mb-1">Campaigns</h3>
+              {(selected.campaigns ?? []).map((c: any) => (
+                <p key={c.name} className="text-xs bg-emerald-50 px-2 py-1 rounded mb-1">{c.name} → flows: {c.flows?.join(", ")}</p>
+              ))}
+            </div>
+            <button onClick={() => apply(selected.id)} className="px-4 py-2 bg-emerald-600 text-white rounded text-sm hover:bg-emerald-700">Apply preset</button>
           </div>
-        ))}
+        )}
+      </div>
+
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
+        <h3 className="font-semibold text-gray-900 text-sm mb-2">Full service surface ({services.length} services)</h3>
+        <div className="flex flex-wrap gap-1">
+          {services.map((s) => (
+            <span key={s.name} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-mono">{s.name}</span>
+          ))}
+        </div>
       </div>
     </div>
   );

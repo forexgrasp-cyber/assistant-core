@@ -45,17 +45,35 @@ class PaymentService(EngagementService):
     def _get_provider(self, name: str) -> Any:
         if name not in self._providers:
             from shared.payments.registry import build_provider
+            from retention_analytics_shared_config import get_settings
 
-            self._providers[name] = build_provider(name)
+            settings = get_settings()
+            credentials: dict[str, str] = {}
+            if name == "stripe" and settings.stripe_secret_key:
+                credentials["secret_key"] = settings.stripe_secret_key
+            self._providers[name] = build_provider(name, credentials=credentials) if credentials else build_provider(name)
         return self._providers[name]
 
     async def _list_providers(self, payload: dict[str, Any]) -> dict[str, Any]:
-        from shared.payments.registry import available_providers, provider_status
+        from shared.payments.registry import provider_status
+        from retention_analytics_core.payment_keys import configured_providers, provider_status_map
 
+        try:
+            from shared.billing.payment_providers import PaymentProvider
+
+            all_providers = [p.value for p in PaymentProvider]
+        except Exception:
+            all_providers = ["stripe", "paypal", "paddle"]
+        # Only providers with credentials configured in env/.env are offered
+        configured = set(configured_providers())
+        offered = [p for p in all_providers if p in configured]
         return {
             "status": "ok",
-            "providers": available_providers(),
-            "status_by_provider": provider_status(),
+            "providers": offered,
+            "all_supported": all_providers,
+            "configured_count": len(offered),
+            "status_by_provider": provider_status_map(),
+            "runtime_status": provider_status(),
         }
 
     async def _create_payment(self, payload: dict[str, Any]) -> dict[str, Any]:

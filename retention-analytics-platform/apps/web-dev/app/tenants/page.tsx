@@ -1,89 +1,61 @@
 "use client";
 
-import { useState } from "react";
-import { UserPlus, Building, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { apiGet } from "@/lib/api";
 
-const tenants = [
-  { id: "t1", name: "Acme Agency", plan: "Growth", clients: 14, status: "active" },
-  { id: "t2", name: "Globex Corp", plan: "Enterprise", clients: 42, status: "active" },
-  { id: "t3", name: "Hooli", plan: "Starter", clients: 3, status: "paused" },
-];
+export default function TenantsPage() {
+  const [health, setHealth] = useState<any>(null);
+  const [services, setServices] = useState<any[]>([]);
+  const [workflows, setWorkflows] = useState<any[]>([]);
 
-export default function Tenants() {
-  const [tenantsList, setTenantsList] = useState(tenants);
-  const [newName, setNewName] = useState("");
-
-  const addTenant = () => {
-    if (!newName) return;
-    setTenantsList([...tenantsList, { id: `t${tenantsList.length + 1}`, name: newName, plan: "Starter", clients: 0, status: "active" }]);
-    setNewName("");
-  };
+  useEffect(() => {
+    apiGet("/health").then(setHealth).catch(() => {});
+    apiGet("/services").then((d: any) => setServices(d.services ?? [])).catch(() => {});
+    apiGet("/workflows").then((d: any) => setWorkflows(d.workflows ?? [])).catch(() => {});
+  }, []);
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">Tenants</h1>
-          <p className="text-gray-500 text-sm">Agency → Client → User hierarchy with PostgreSQL RLS.</p>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Tenants</h1>
+        <p className="text-gray-500 text-sm mt-1">
+          Multi-tenancy is enforced at the API boundary: the tenant comes from the JWT principal,
+          never from the request body. Cross-tenant access returns 403/404.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
+          <p className="text-xs text-gray-400 uppercase">Current tenant (seed)</p>
+          <p className="font-mono text-sm text-gray-900 mt-1 break-all">00000000-0000-0000-0000-000000000001</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
+          <p className="text-xs text-gray-400 uppercase">Environment</p>
+          <p className="font-semibold text-gray-900 mt-1">{health?.environment ?? "…"}</p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
+          <p className="text-xs text-gray-400 uppercase">Isolation</p>
+          <p className="font-semibold text-green-600 mt-1">Enforced (403 on cross-tenant)</p>
         </div>
       </div>
 
-      <div className="bg-white p-5 rounded border border-gray-200 shadow-sm mb-8 max-w-md">
-        <div className="flex gap-2">
-          <input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="New tenant name"
-            className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          <button onClick={addTenant} className="px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
-            <UserPlus className="w-4 h-4" />
-          </button>
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+        <h3 className="font-semibold text-gray-900 text-sm mb-3">Tenant-scoped resources visible now</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+          <div><p className="text-gray-400 text-xs uppercase">Services</p><p className="text-xl font-bold">{services.length}</p></div>
+          <div><p className="text-gray-400 text-xs uppercase">Workflows</p><p className="text-xl font-bold">{workflows.length}</p></div>
+          <div><p className="text-gray-400 text-xs uppercase">Health</p><p className="text-xl font-bold text-green-600">{health?.status ?? "…"}</p></div>
         </div>
       </div>
 
-      <div className="bg-white rounded border border-gray-200 shadow-sm overflow-hidden">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Tenant</th>
-              <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Plan</th>
-              <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Clients</th>
-              <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
-              <th className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {tenantsList.map((t) => (
-              <tr key={t.id} className="hover:bg-gray-50">
-                <td className="px-5 py-4">
-                  <div className="flex items-center gap-3">
-                    <Building className="w-5 h-5 text-gray-400" />
-                    <span className="font-medium text-gray-900">{t.name}</span>
-                  </div>
-                </td>
-                <td className="px-5 py-4">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    t.plan === "Enterprise" ? "bg-indigo-100 text-indigo-700" :
-                    t.plan === "Growth" ? "bg-blue-100 text-blue-700" :
-                    "bg-gray-100 text-gray-600"
-                  }`}>{t.plan}</span>
-                </td>
-                <td className="px-5 py-4 text-gray-600">{t.clients}</td>
-                <td className="px-5 py-4">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    t.status === "active" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
-                  }`}>{t.status}</span>
-                </td>
-                <td className="px-5 py-4">
-                  <button className="text-xs text-red-500 hover:text-red-700">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+        <h3 className="font-semibold text-gray-900 text-sm mb-2">How tenancy works</h3>
+        <ol className="text-sm text-gray-600 space-y-1 list-decimal list-inside">
+          <li>JWT validated → principal tenant extracted (auth.py)</li>
+          <li>Any tenant_id in body/header must match principal → else 403 (tenancy.py)</li>
+          <li>All queries filtered by tenant_id at the kernel/repository layer</li>
+          <li>Audit log records tenant on every mutation</li>
+        </ol>
       </div>
     </div>
   );

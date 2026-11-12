@@ -19,5 +19,5 @@ COPY --from=builder --chown=appuser:appuser /app/node_modules /app/node_modules
 COPY --chown=appuser:appuser /app/package.json /app/package.json
 USER appuser
 
-EXPOSE 3000
+EXPOSE 47320
 CMD ["npm", "run", "start"]

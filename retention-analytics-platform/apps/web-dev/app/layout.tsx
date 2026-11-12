@@ -1,33 +1,54 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Developer Console — Retention Analytics",
-  description: "Schema builder, workflow designer, vertical packs, tenants",
+  title: "Developer Console — Retention Analytics Platform",
+  description:
+    "Explore the platform: 24 services, 4 workflows, 41 API endpoints. Invoke actions, run pipelines, inspect entities.",
 };
+
+const nav = [
+  { href: "/", label: "Overview" },
+  { href: "/services", label: "Services" },
+  { href: "/workflows", label: "Workflows" },
+  { href: "/api-explorer", label: "API Explorer" },
+  { href: "/schema", label: "Entities" },
+  { href: "/verticals", label: "Verticals" },
+  { href: "/tenants", label: "Tenants" },
+];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <nav className="border-b border-gray-200 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between h-16 items-center">
-              <div className="flex items-center gap-2 font-bold text-gray-900">
-                <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-xs">DC</span>
-                <span>Developer Console</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <a href="/" className="text-sm font-medium text-gray-600 hover:text-indigo-600">Overview</a>
-                <a href="/schema" className="text-sm font-medium text-gray-600 hover:text-indigo-600">Schema Builder</a>
-                <a href="/workflows" className="text-sm font-medium text-gray-600 hover:text-indigo-600">Workflows</a>
-                <a href="/verticals" className="text-sm font-medium text-gray-600 hover:text-indigo-600">Vertical Packs</a>
-                <a href="/tenants" className="text-sm font-medium text-gray-600 hover:text-indigo-600">Tenants</a>
-              </div>
+        <div className="min-h-screen flex">
+          <aside className="w-56 bg-slate-950 text-slate-300 flex flex-col">
+            <div className="h-16 flex items-center px-5 border-b border-slate-800">
+              <Link href="/" className="flex items-center gap-2 font-bold text-white">
+                <span className="bg-emerald-500 text-white px-2 py-0.5 rounded text-xs">DC</span>
+                <span className="text-sm">Dev Console</span>
+              </Link>
             </div>
-          </div>
-        </nav>
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">{children}</main>
+            <nav className="flex-1 px-3 py-4 space-y-1">
+              {nav.map((n) => (
+                <Link
+                  key={n.href}
+                  href={n.href}
+                  className="block px-3 py-2 rounded text-sm font-medium hover:bg-slate-800 hover:text-white transition"
+                >
+                  {n.label}
+                </Link>
+              ))}
+            </nav>
+            <div className="px-5 py-4 border-t border-slate-800">
+              <a href="http://127.0.0.1:47319/docs" target="_blank" className="text-xs text-emerald-400 hover:underline">
+                Swagger UI ↗
+              </a>
+            </div>
+          </aside>
+          <main className="flex-1 p-8 overflow-y-auto bg-gray-50">{children}</main>
+        </div>
       </body>
     </html>
   );
