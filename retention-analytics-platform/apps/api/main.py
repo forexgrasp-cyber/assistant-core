@@ -214,6 +214,17 @@ from retention_analytics_advanced.automation import (
 from retention_analytics_advanced.help_demo import DemoService, HelpService
 from retention_analytics_advanced.datatransfer import DataTransferService
 from retention_analytics_advanced.connectors import ConnectorService
+from retention_analytics_lifecycle.state_machine import LifecycleService
+from retention_analytics_lifecycle.dunning import DunningEngine
+from retention_analytics_lifecycle.health import HealthEngine
+from retention_analytics_lifecycle.renewals import RenewalRiskService
+from retention_analytics_lifecycle.billing import MeteringService, ProrationService
+from retention_analytics_lifecycle.loops import (
+    ExperimentAutoPromoteService,
+    IncidentService,
+    NPSLoopService,
+    WinbackTimingService,
+)
 
 for svc_cls in (
     Customer360Service,
@@ -242,6 +253,16 @@ for svc_cls in (
     DemoService,
     DataTransferService,
     ConnectorService,
+    LifecycleService,
+    DunningEngine,
+    HealthEngine,
+    RenewalRiskService,
+    MeteringService,
+    ProrationService,
+    NPSLoopService,
+    ExperimentAutoPromoteService,
+    IncidentService,
+    WinbackTimingService,
 ):
     svc_cls(registry).register()
 
@@ -3186,6 +3207,293 @@ async def connector_sync_history(
 ) -> dict[str, Any]:
     tenant_id = current_tenant(request, user)
     return await registry.invoke("connectors", "sync_history", {"tenant_id": tenant_id})
+
+
+# ---------------------------------------------------------------------------
+# Lifecycle / deeper processes
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/v1/lifecycle/states")
+async def lifecycle_states(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, Any]:
+    return await registry.invoke("lifecycle", "states", {})
+
+
+@app.post("/api/v1/lifecycle/subscriptions")
+async def lifecycle_create(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Create a subscription in the lifecycle state machine (starts in trial)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("lifecycle", "create", {"tenant_id": tenant_id, **body})
+
+
+@app.post("/api/v1/lifecycle/subscriptions/{sub_id}/transition")
+async def lifecycle_transition(
+    sub_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Transition a subscription (trial->active->past_due->grace->suspended->cancelled->churned)."""
+    return await registry.invoke("lifecycle", "transition", {"subscription_id": sub_id, **body})
+
+
+@app.post("/api/v1/lifecycle/tick")
+async def lifecycle_tick(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Advance timers: grace expiry, suspension, trial expiry, churn."""
+    return await registry.invoke("lifecycle", "tick", {})
+
+
+@app.get("/api/v1/lifecycle/subscriptions")
+async def lifecycle_list(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    state: str = "",
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("lifecycle", "list", {"tenant_id": tenant_id, "state": state})
+
+
+@app.get("/api/v1/lifecycle/subscriptions/{sub_id}")
+async def lifecycle_get(
+    sub_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    return await registry.invoke("lifecycle", "get", {"subscription_id": sub_id})
+
+
+@app.post("/api/v1/dunning/engine/start")
+async def dunning_engine_start(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Start a dunning escalation campaign with reason-based retry schedule."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("dunning.engine", "start", {"tenant_id": tenant_id, **body})
+
+
+@app.post("/api/v1/dunning/engine/{campaign_id}/failure")
+async def dunning_engine_failure(
+    campaign_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    return await registry.invoke("dunning.engine", "record_failure", {"campaign_id": campaign_id, **body})
+
+
+@app.post("/api/v1/dunning/engine/tick")
+async def dunning_engine_tick(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Return campaigns due for next retry/escalation."""
+    return await registry.invoke("dunning.engine", "tick", {})
+
+
+@app.post("/api/v1/dunning/engine/{campaign_id}/recover")
+async def dunning_engine_recover(
+    campaign_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    return await registry.invoke("dunning.engine", "recover", {"campaign_id": campaign_id, **body})
+
+
+@app.get("/api/v1/dunning/engine/attribution")
+async def dunning_attribution(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Recovery rate + amount recovered + which attempt/card-updater worked."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("dunning.engine", "attribution", {"tenant_id": tenant_id})
+
+
+@app.post("/api/v1/health/engine/compute")
+async def health_engine_compute(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Health v2: decaying score with components + threshold action."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("health.engine", "compute", {"tenant_id": tenant_id, **body})
+
+
+@app.post("/api/v1/health/engine/engage")
+async def health_engine_engage(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Record an engagement event — bumps health, resets decay clock."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("health.engine", "record_engagement", {"tenant_id": tenant_id, **body})
+
+
+@app.post("/api/v1/health/engine/tick")
+async def health_engine_decay(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Cron: apply daily decay to all health scores."""
+    return await registry.invoke("health.engine", "tick_decay", {})
+
+
+@app.get("/api/v1/health/engine")
+async def health_engine_list(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    tier: str = "",
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("health.engine", "list", {"tenant_id": tenant_id, "tier": tier})
+
+
+@app.post("/api/v1/renewals/risk/track")
+async def renewal_risk_track(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Track a renewal and score its risk (health+payments+tickets+usage)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("renewals.risk", "track", {"tenant_id": tenant_id, **body})
+
+
+@app.post("/api/v1/renewals/risk/{renewal_id}/score")
+async def renewal_risk_score(
+    renewal_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    return await registry.invoke("renewals.risk", "score", {"renewal_id": renewal_id, **body})
+
+
+@app.post("/api/v1/renewals/risk/tick")
+async def renewal_risk_tick(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Return T-90/60/30/14/7 checkpoints due now (each arms a playbook)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("renewals.risk", "tick", {"tenant_id": tenant_id})
+
+
+@app.post("/api/v1/metering/quota")
+async def metering_set_quota(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("metering.v2", "set_quota", {"tenant_id": tenant_id, **body})
+
+
+@app.post("/api/v1/metering/record")
+async def metering_record(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Record usage; returns quota check with any triggered threshold alerts."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("metering.v2", "record", {"tenant_id": tenant_id, **body})
+
+
+@app.get("/api/v1/metering/overage")
+async def metering_overage(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    resource: str = "api_calls",
+) -> dict[str, Any]:
+    """Overage invoice line items for the current period."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("metering.v2", "overage_lines", {"tenant_id": tenant_id, "resource": resource})
+
+
+@app.post("/api/v1/billing/prorate")
+async def prorate_quote(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Prorated charge/credit for a mid-cycle plan change."""
+    return await registry.invoke("billing.proration", "quote_change", body)
+
+
+@app.post("/api/v1/nps/loop")
+async def nps_loop(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Handle an NPS response: detractor->urgent call, passive->feedback ask, promoter->referral."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("nps.loop", "handle_response", {"tenant_id": tenant_id, **body})
+
+
+@app.post("/api/v1/experiments/{experiment_id}/auto-evaluate")
+async def experiment_auto_evaluate(
+    experiment_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Evaluate significance; auto-promote the winner if z>=1.96 and lift>5%."""
+    return await registry.invoke("experiments.auto", "evaluate", {"experiment_id": experiment_id, **body})
+
+
+@app.post("/api/v1/incidents/from-anomaly")
+async def incident_from_anomaly(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Create an incident from a metric anomaly."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("incidents", "create_from_anomaly", {"tenant_id": tenant_id, **body})
+
+
+@app.get("/api/v1/incidents/{incident_id}/comms")
+async def incident_comms(
+    incident_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Draft customer-facing comms for an incident."""
+    return await registry.invoke("incidents", "comms_draft", {"incident_id": incident_id})
+
+
+@app.post("/api/v1/winback/schedule")
+async def winback_schedule(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Schedule 7/30/90-day win-back touches for a churned customer."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("winback.timing", "schedule", {"tenant_id": tenant_id, **body})
+
+
+@app.post("/api/v1/winback/tick")
+async def winback_tick(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Return win-back touches due now."""
+    return await registry.invoke("winback.timing", "due", {})
 
 
 # ---------------------------------------------------------------------------
