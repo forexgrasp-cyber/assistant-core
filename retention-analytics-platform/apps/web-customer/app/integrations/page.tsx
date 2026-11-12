@@ -60,8 +60,8 @@ export default function IntegrationsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Catalog */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
-          <h3 className="font-semibold text-gray-900 text-sm mb-3">Integration catalog ({catalog ? Object.values(catalog).flat().length : 0})</h3>
-          {catalog && Object.entries(catalog).map(([cat, provs]: [string, any]) => (
+          <h3 className="font-semibold text-gray-900 text-sm mb-3">Integration catalog ({catalog ? Object.values(catalog).filter((v) => Array.isArray(v)).flat().length : 0})</h3>
+          {catalog && Object.entries(catalog).filter(([k, v]) => Array.isArray(v)).map(([cat, provs]: [string, any]) => (
             <div key={cat} className="mb-3">
               <p className="text-xs font-semibold text-gray-400 uppercase mb-1">{cat}</p>
               <div className="flex flex-wrap gap-1">
