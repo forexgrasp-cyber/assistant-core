@@ -5,6 +5,7 @@ import { LangProvider, useI18n } from "@/components/LangProvider";
 import { ToastProvider } from "@/components/ToastProvider";
 import CommandPalette from "@/components/CommandPalette";
 import Sidebar from "@/components/Sidebar";
+import Tour from "@/components/Tour";
 
 export const metadata: Metadata = {
   title: "Retention Analytics — Customer Portal",
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <main className="flex-1 p-8 overflow-y-auto">{children}</main>
             </div>
             <CommandPalette />
+            <Tour />
           </ToastProvider>
         </LangProvider>
       </body>

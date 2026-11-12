@@ -225,6 +225,18 @@ from retention_analytics_lifecycle.loops import (
     NPSLoopService,
     WinbackTimingService,
 )
+from retention_analytics_advanced_processing.services import (
+    CustomerPortalService,
+    DeliverabilityService,
+    MLChurnService,
+    SendTimeService,
+)
+from retention_analytics_advanced_processing.analytics import (
+    CohortComparison,
+    MultiTouchAttribution,
+    RootCauseService,
+)
+from retention_analytics_advanced_processing.annotations import AnnotationService
 
 for svc_cls in (
     Customer360Service,
@@ -263,6 +275,14 @@ for svc_cls in (
     ExperimentAutoPromoteService,
     IncidentService,
     WinbackTimingService,
+    SendTimeService,
+    MLChurnService,
+    DeliverabilityService,
+    CustomerPortalService,
+    MultiTouchAttribution,
+    CohortComparison,
+    RootCauseService,
+    AnnotationService,
 ):
     svc_cls(registry).register()
 
@@ -3494,6 +3514,184 @@ async def winback_tick(
 ) -> dict[str, Any]:
     """Return win-back touches due now."""
     return await registry.invoke("winback.timing", "due", {})
+
+
+# ---------------------------------------------------------------------------
+# Advanced processing: send-time, ML churn, deliverability, attribution, cohorts
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/v1/sendtime/recommend")
+async def sendtime_recommend(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Optimal send time for a recipient (shared.predictive_sendtime)."""
+    return await registry.invoke("sendtime.optimize", "recommend", body)
+
+
+@app.post("/api/v1/sendtime/plan")
+async def sendtime_plan(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Plan per-recipient send times for a campaign."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("sendtime.optimize", "plan_campaign", {"tenant_id": tenant_id, **body})
+
+
+@app.post("/api/v1/sendtime/engage")
+async def sendtime_engage(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Record open/click so the model learns this recipient's habits."""
+    return await registry.invoke("sendtime.optimize", "record_engagement", body)
+
+
+@app.get("/api/v1/sendtime/best-hours")
+async def sendtime_best_hours(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, Any]:
+    return await registry.invoke("sendtime.optimize", "best_hours", {})
+
+
+@app.post("/api/v1/ai/churn/ml")
+async def churn_ml_score(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """ML churn score (shared.predictive.churn) blended with the health engine."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("ai.churn_ml", "score", {"tenant_id": tenant_id, **body})
+
+
+@app.get("/api/v1/email/deliverability/warmup")
+async def email_warmup(
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    daily_volume: int = 50,
+    age_days: int = 0,
+) -> dict[str, Any]:
+    """Email warmup schedule (shared.deliverability)."""
+    return await registry.invoke("email.deliverability", "warmup_schedule", {"daily_volume": daily_volume, "age_days": age_days})
+
+
+@app.get("/api/v1/email/deliverability/domain")
+async def email_domain_check(
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    domain: str = "",
+) -> dict[str, Any]:
+    """Domain deliverability check (SPF/DKIM/DMARC)."""
+    return await registry.invoke("email.deliverability", "domain_check", {"domain": domain})
+
+
+@app.post("/api/v1/attribution/touch")
+async def attribution_touch(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Record a marketing touch for multi-touch attribution."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("attribution.multitouch", "record_touch", {"tenant_id": tenant_id, **body})
+
+
+@app.post("/api/v1/attribution/multitouch")
+async def attribution_multitouch(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Attribute a conversion across touches (first/last/linear/time_decay/position_based)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("attribution.multitouch", "attribute", {"tenant_id": tenant_id, **body})
+
+
+@app.post("/api/v1/analytics/cohorts/compare")
+async def compare_cohorts(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Compare two cohorts side by side on any metric."""
+    return await registry.invoke("analytics.cohort_compare", "compare", body)
+
+
+@app.post("/api/v1/analytics/root-cause")
+async def root_cause(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Correlate a metric anomaly with recent platform activity to find the likely cause."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("analytics.root_cause", "analyze", {"tenant_id": tenant_id, **body})
+
+
+# ---------------------------------------------------------------------------
+# Success center (customer-facing portal: docs, DSAR, dashboard)
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/v1/success-center/register")
+async def success_center_register(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("success_center", "register_customer", {"tenant_id": tenant_id, **body})
+
+
+@app.get("/api/v1/success-center/dashboard")
+async def success_center_dashboard(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    email: str = "",
+) -> dict[str, Any]:
+    return await registry.invoke("success_center", "dashboard", {"email": email})
+
+
+@app.get("/api/v1/success-center/documents")
+async def success_center_documents(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    email: str = "",
+) -> dict[str, Any]:
+    return await registry.invoke("success_center", "documents", {"email": email})
+
+
+@app.post("/api/v1/success-center/dsar")
+async def success_center_dsar(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Submit a data-subject access request (GDPR/CCPA)."""
+    return await registry.invoke("success_center", "submit_dsar", body)
+
+
+@app.post("/api/v1/analytics/annotations")
+async def create_annotation(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Annotate a metric (notes tied to metric+date, e.g. 'launched new pricing')."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("analytics.annotations", "create", {"tenant_id": tenant_id, **body})
+
+
+@app.get("/api/v1/analytics/annotations")
+async def list_annotations(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    metric: str = "",
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("analytics.annotations", "list", {"tenant_id": tenant_id, "metric": metric})
 
 
 # ---------------------------------------------------------------------------

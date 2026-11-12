@@ -7,8 +7,8 @@ import { useTheme } from "./ThemeProvider";
 import { LANGS, Lang } from "@/lib/i18n";
 
 const NAV = [
-  "dashboard", "campaigns", "flows", "customers", "segments", "analytics",
-  "growth", "experiments", "ops", "integrations", "events", "reports",
+  "dashboard", "campaigns", "flows", "flow-editor", "customers", "segments", "analytics",
+  "growth", "experiments", "ops", "alerts", "integrations", "events", "reports",
   "presets", "help", "settings",
 ] as const;
 
@@ -49,7 +49,7 @@ export default function Sidebar() {
                 active ? "bg-indigo-600 text-white" : "hover:bg-slate-800 hover:text-white"
               }`}
             >
-              {t(`nav_${p === "help" ? "help" : p}`)}
+              {t(`nav_${p === "help" ? "help" : p === "flow-editor" ? "flow_editor" : p === "alerts" ? "alerts" : p}`)}
             </Link>
           );
         })}
