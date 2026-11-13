@@ -40,9 +40,11 @@ if [ -d "$SHARED/.git" ]; then
 fi
 
 echo "==> Deploying commit: $(git rev-parse --short HEAD)"
-# env-file must be absolute: compose resolves relative paths against the
-# compose file's directory, not the CWD.
-COMPOSE_ARGS=(-p "$PROJECT" -f "$COMPOSE_FILE" --env-file "$REPO_DIR/.env")
+# env-file must be absolute AND the compose file's dir must be the project dir:
+# Compose v5 resolves --env-file relative to the compose file's directory, so we
+# set --project-directory to the repo root; then the default .env there loads too.
+COMPOSE_FILE_ABS="$REPO_DIR/$COMPOSE_FILE"
+COMPOSE_ARGS=(-p "$PROJECT" --project-directory "$REPO_DIR" -f "$COMPOSE_FILE_ABS" --env-file "$REPO_DIR/.env")
 
 if docker image inspect "$IMAGE" >/dev/null 2>&1; then
   docker tag "$IMAGE" "$PREV"
