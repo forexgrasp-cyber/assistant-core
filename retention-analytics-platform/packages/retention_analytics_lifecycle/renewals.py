@@ -111,7 +111,10 @@ class RenewalRiskService:
 
     async def _list(self, p: dict[str, Any]) -> dict[str, Any]:
         tenant = p.get("tenant_id", "")
+        risk_tier = p.get("risk_tier")
         rows = [r for r in self._renewals.load() if r.get("tenant_id") == tenant]
+        if risk_tier:
+            rows = [r for r in rows if r.get("risk_tier") == risk_tier]
         rows.sort(key=lambda x: x.get("risk_score", 0), reverse=True)
         return {"status": "ok", "renewals": rows, "count": len(rows)}
 

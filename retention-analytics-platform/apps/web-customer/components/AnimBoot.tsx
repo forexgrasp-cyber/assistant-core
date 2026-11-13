@@ -26,7 +26,20 @@ export default function AnimBoot() {
     (async () => {
       await load("https://unpkg.com/gsap@3.12/dist/gsap.min.js");
       await load("https://unpkg.com/gsap@3.12/dist/ScrollTrigger.min.js");
-      await load("/anim/anim.js");
+
+      // anim.js is generated as a sequence of inline <script> blocks (for HTML
+      // embedding). Loading it via <script src> makes the browser parse the
+      // tags as JS -> "Unexpected token '<'". Fetch it and inject the JS body.
+      try {
+        const res = await fetch("/anim/anim.js");
+        const raw = await res.text();
+        const js = raw.replace(/<\/?script[^>]*>/gi, "");
+        const s = document.createElement("script");
+        s.textContent = js;
+        document.head.appendChild(s);
+      } catch {
+        // animations are decorative — never block the page
+      }
     })();
 
     return () => {

@@ -76,14 +76,19 @@ class PlatformSurfaceService:
 
     # ---------------------------------------------------------------- seo
     async def _manifest(self, p: dict[str, Any]) -> dict[str, Any]:
-        base = p.get("base_url") or f"https://{PRODUCT_SUBDOMAIN}.{APEX_DOMAIN}"
+        """PWA/web-app manifest.
+
+        URLs are RELATIVE so they resolve against the origin that serves the
+        manifest (the portal in dev, the apex in prod). Chrome ignores
+        cross-origin manifest URLs, so absolute URLs break the install prompt.
+        """
         return {
             "name": PRODUCT_NAME,
             "short_name": "Snapford Retention",
             "description": "Retention analytics: campaigns, flows, churn prediction, dunning and NPS.",
-            "id": f"{base}/",
-            "start_url": f"{base}/",
-            "scope": f"{base}/",
+            "id": "/",
+            "start_url": "/",
+            "scope": "/",
             "display": "standalone",
             "orientation": "portrait-primary",
             "background_color": "#0f172a",
@@ -92,13 +97,13 @@ class PlatformSurfaceService:
             "dir": "ltr",
             "categories": ["business", "productivity", "analytics"],
             "icons": [
-                {"src": f"{base}/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
-                {"src": f"{base}/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+                {"src": "/brand/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+                {"src": "/brand/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
             ],
             "shortcuts": [
-                {"name": "Campaigns", "url": f"{base}/campaigns"},
-                {"name": "Customers", "url": f"{base}/customers"},
-                {"name": "Analytics", "url": f"{base}/analytics"},
+                {"name": "Campaigns", "url": "/campaigns"},
+                {"name": "Customers", "url": "/customers"},
+                {"name": "Analytics", "url": "/analytics"},
             ],
         }
 

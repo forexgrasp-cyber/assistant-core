@@ -50,10 +50,19 @@ def test_seo_manifest(client: TestClient) -> None:
     assert r.status_code == 200
     d = r.json()
     assert d["name"]
-    assert d["start_url"].startswith("https://")
     assert d["display"] in ("standalone", "fullscreen", "minimal-ui")
     assert d["icons"]
     assert d["theme_color"].startswith("#")
+    # Chrome rejects cross-origin manifest URLs, so the manifest must use
+    # same-origin relative paths.
+    assert d["start_url"] == "/"
+    assert d["id"] == "/"
+    assert d["scope"] == "/"
+    for sc in d["shortcuts"]:
+        assert sc["url"].startswith("/")
+        assert not sc["url"].startswith("http")
+    for icon in d["icons"]:
+        assert icon["src"].startswith("/")
 
 
 def test_tokens_css(client: TestClient) -> None:

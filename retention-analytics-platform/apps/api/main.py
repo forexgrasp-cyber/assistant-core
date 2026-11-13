@@ -3422,6 +3422,17 @@ async def health_engine_list(
     return await registry.invoke("health.engine", "list", {"tenant_id": tenant_id, "tier": tier})
 
 
+@app.get("/api/v1/renewals/risk")
+async def list_renewal_risk(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    risk_tier: str = "",
+) -> dict[str, Any]:
+    """Tracked renewals with their risk score and tier (highest risk first)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("renewals.risk", "list", {"tenant_id": tenant_id, "risk_tier": risk_tier})
+
+
 @app.post("/api/v1/renewals/risk/track")
 async def renewal_risk_track(
     request: Request,
