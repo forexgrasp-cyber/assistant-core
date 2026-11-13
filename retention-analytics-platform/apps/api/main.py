@@ -244,6 +244,9 @@ from retention_analytics_advanced_processing.analysis import (
     NextBestActionService,
     TailoredContentService,
 )
+from retention_analytics_advanced_processing.agency import AgencyService
+from retention_analytics_advanced_processing.agency_connectors import AgencyConnectorService
+from retention_analytics_advanced_processing.performance import PerformanceAnalytics
 
 for svc_cls in (
     Customer360Service,
@@ -295,6 +298,9 @@ for svc_cls in (
     NextBestActionService,
     AutoApproachService,
     TailoredContentService,
+    AgencyService,
+    AgencyConnectorService,
+    PerformanceAnalytics,
 ):
     svc_cls(registry).register()
 
@@ -3841,6 +3847,229 @@ async def render_campaign_message(
     tenant_id = current_tenant(request, user)
     return await registry.invoke("campaigns.templates", "render", {
         "tenant_id": tenant_id, "campaign_id": campaign_id, **body})
+
+
+# ---------------------------------------------------------------------------
+# Agency layer: client roster, pacing, sharing, digests
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/v1/agency/clients")
+async def create_agency_client(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Add a client brand to the agency roster."""
+    return await registry.invoke("agency", "create_client", body)
+
+
+@app.get("/api/v1/agency/clients")
+async def list_agency_clients(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    agency_id: str = "default",
+) -> dict[str, Any]:
+    return await registry.invoke("agency", "list_clients", {"agency_id": agency_id})
+
+
+@app.get("/api/v1/agency/roster")
+async def agency_roster(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    agency_id: str = "default",
+) -> dict[str, Any]:
+    """The agency roster: every client with pacing, status and what needs attention."""
+    return await registry.invoke("agency", "roster", {"agency_id": agency_id})
+
+
+@app.patch("/api/v1/agency/clients/{client_id}")
+async def update_agency_client(
+    client_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    return await registry.invoke("agency", "update_client", {"client_id": client_id, **body})
+
+
+@app.post("/api/v1/agency/clients/{client_id}/goal")
+async def set_agency_goal(
+    client_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Set a client's revenue goal (drives the behind-goal flag)."""
+    return await registry.invoke("agency", "set_goal", {"client_id": client_id, **body})
+
+
+@app.post("/api/v1/agency/clients/{client_id}/share")
+async def share_client_dashboard(
+    client_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Create a white-label, tokenised client dashboard link."""
+    return await registry.invoke("agency", "share_dashboard", {"client_id": client_id, **body})
+
+
+@app.get("/api/v1/agency/shares")
+async def list_agency_shares(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    client_id: str = "",
+) -> dict[str, Any]:
+    return await registry.invoke("agency", "list_shares", {"client_id": client_id})
+
+
+@app.get("/api/v1/share/{token}")
+async def public_client_report(
+    token: str,
+) -> dict[str, Any]:
+    """Public white-label client dashboard (token-gated, no auth)."""
+    from retention_analytics_advanced_processing.agency import _JsonStore
+
+    share = next((s for s in _JsonStore("agency_shares.json").load() if s.get("token") == token), None)
+    if not share:
+        raise HTTPException(status_code=404, detail="unknown share token")
+    r = await registry.invoke("agency", "client_report", {
+        "tenant_id": share.get("tenant_id", ""), "branding": share.get("branding", {})})
+    return {"status": "ok", "client": share.get("client_id"), **r.get("report", {})}
+
+
+@app.post("/api/v1/agency/digests")
+async def schedule_client_digest(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Schedule a recurring Slack digest for a client."""
+    return await registry.invoke("agency", "schedule_digest", body)
+
+
+@app.get("/api/v1/agency/digests")
+async def list_client_digests(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    return await registry.invoke("agency", "list_digests", {})
+
+
+# ---------------------------------------------------------------------------
+# Agency platform connectors (Klaviyo, Shopify, Recharge, ...)
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/v1/agency/platforms")
+async def agency_platforms(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, Any]:
+    """The platforms we connect (same set Hiro supports, plus direct billing)."""
+    return await registry.invoke("connectors.agency", "platforms", {})
+
+
+@app.get("/api/v1/agency/platforms/status")
+async def agency_platforms_status(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, Any]:
+    return await registry.invoke("connectors.agency", "status", {})
+
+
+@app.post("/api/v1/agency/platforms/{platform}/connect")
+async def agency_platform_connect(
+    platform: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    return await registry.invoke("connectors.agency", "connect", {"platform": platform, **body})
+
+
+@app.post("/api/v1/agency/platforms/{platform}/sync")
+async def agency_platform_sync(
+    platform: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Pull from a platform and normalise into our stores."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("connectors.agency", "sync", {"platform": platform, "tenant_id": tenant_id, **body})
+
+
+@app.get("/api/v1/agency/platforms/syncs")
+async def agency_platform_syncs(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    return await registry.invoke("connectors.agency", "history", {})
+
+
+# ---------------------------------------------------------------------------
+# Deep-dive performance analytics (flow map, campaign dive, timing, deliverability)
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/v1/performance/sends")
+async def record_send_performance(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Record one message send with creative + outcomes (feeds flow map / campaign dive)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("analytics.performance", "record_send", {"tenant_id": tenant_id, **body})
+
+
+@app.get("/api/v1/performance/flow-map")
+async def flow_map_performance(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    flow_id: str = "",
+) -> dict[str, Any]:
+    """Flow map: every message with delivered/open/click/revenue + creative."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("analytics.performance", "flow_map", {"tenant_id": tenant_id, "flow_id": flow_id})
+
+
+@app.get("/api/v1/performance/campaign")
+async def campaign_deep_dive(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    campaign_id: str = "",
+) -> dict[str, Any]:
+    """Campaign deep dive: creative + subject next to open/click/revenue, products, new vs returning, A/B."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("analytics.performance", "campaign_deep_dive", {"tenant_id": tenant_id, "campaign_id": campaign_id})
+
+
+@app.get("/api/v1/performance/message-timing")
+async def message_timing(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Message timing: revenue per recipient by weekday x hour; static vs recipient-local separately."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("analytics.performance", "message_timing", {"tenant_id": tenant_id})
+
+
+@app.get("/api/v1/performance/deliverability")
+async def deliverability_report(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Deliverability score + history, per-provider rates, biggest offenders."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("analytics.performance", "deliverability", {"tenant_id": tenant_id})
+
+
+@app.post("/api/v1/performance/deliverability")
+async def record_deliverability(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Record a deliverability sample (bounce/spam/unsub by inbox provider)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("analytics.performance", "record_deliverability", {"tenant_id": tenant_id, **body})
 
 
 # ---------------------------------------------------------------------------
