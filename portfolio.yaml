@@ -1,0 +1,27 @@
+name: assistant-core
+family: ai-agent-platform
+buyer: Developers / AI engineers
+spine_services:
+- shared.auth
+- shared.llm
+- shared.agent_runtime
+surface_only: false
+distinct_buyer: true
+data_asset: Assistant configurations / memory
+status: Development
+verdict: STUB
+parent: null
+deployment:
+  domain: assistant-core.snapford.com
+  health_endpoint: /health
+  port: 8000
+  container_name: app
+  network: web
+  tls: true
+  type: product
+cron_jobs: []
+analytics:
+  ga4_property_id: G-XXXXXXXX
+  search_console_site: sc-domain:assistant-core.snapford.com
+alerting:
+  telegram_chat_id: '-1001234567890'

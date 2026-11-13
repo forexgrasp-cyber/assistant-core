@@ -1,0 +1,159 @@
+# Assistant Core Configuration
+# Defines assistant instances per tenant
+
+# Global settings
+global:
+  ollama_host: "http://localhost:11437"
+  # Models - set via env vars, not hardcoded
+  # ollama_model: ${OLLAMA_MODEL:-llama3.2:3b}
+  # embedding_model: ${EMBEDDING_MODEL:-all-MiniLM-L6-v2}
+  # TTS/STT models also configurable:
+  # tts_model: ${TTS_MODEL:-elevenlabs}
+  # stt_model: ${STT_MODEL:-whisper}
+  chromadb_path: "./data/chromadb"
+  data_dir: "./data"
+  persona_name: "JARVIS"
+  persona_style: "professional, concise, proactive"
+  voice_enabled: true
+  auto_update: true
+
+# Tenant definitions
+tenants:
+  - id: "demo-tenant"
+    name: "Demo Tenant"
+    owner: "admin"
+    plan: "enterprise"
+    assistants:
+      - id: "jarvis-personal"
+        type: "personal"
+        name: "JARVIS Personal"
+        owner: "admin"
+        enabled: true
+        config:
+          hotkey: "ctrl+shift+j"
+          tray_enabled: true
+          connectors:
+            - gmail
+            - calendar
+            - notion
+            - obsidian
+            - github
+            - slack
+          persona:
+            name: "JARVIS"
+            style: "professional, concise, proactive"
+          voice:
+            enabled: true
+            wake_word: "jarvis"
+          scheduler:
+            enabled: true
+            timezone: "America/New_York"
+
+      - id: "receptionist-dental"
+        type: "business"
+        name: "Dental Receptionist"
+        owner: "admin"
+        enabled: true
+        config:
+          vertical: "dental"
+          phone: "+15551234567"
+          widget_embed: true
+          billing_tier: "pro"
+          vertical_prompt: "dental"
+          phone_provisioning: true
+          calendar_sync: true
+          whatsapp_enabled: true
+          features:
+            - voice
+            - sms
+            - booking
+            - missed_call_recovery
+            - calendar_sync
+            - whatsapp
+            - widget
+          business_hours:
+            mon: {open: "09:00", close: "17:00"}
+            tue: {open: "09:00", close: "17:00"}
+            wed: {open: "09:00", close: "17:00"}
+            thu: {open: "09:00", close: "17:00"}
+            fri: {open: "09:00", close: "17:00"}
+            sat: {open: "09:00", close: "13:00"}
+            sun: {open: "closed", close: "closed"}
+
+      - id: "receptionist-hvac"
+        type: "business"
+        name: "HVAC Receptionist"
+        owner: "admin"
+        enabled: true
+        config:
+          vertical: "hvac"
+          phone: "+15551234568"
+          widget_embed: true
+          billing_tier: "pro"
+          vertical_prompt: "hvac"
+          phone_provisioning: true
+          calendar_sync: true
+          whatsapp_enabled: true
+
+# Connector configurations (set via env vars)
+connectors:
+  gmail:
+    enabled: true
+    required_env: ["GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET", "GMAIL_REFRESH_TOKEN"]
+  calendar:
+    enabled: true
+    required_env: ["GOOGLE_CALENDAR_CREDENTIALS"]
+  notion:
+    enabled: true
+    required_env: ["NOTION_TOKEN"]
+  obsidian:
+    enabled: true
+    required_env: ["OBSIDIAN_VAULT_PATH"]
+  slack:
+    enabled: true
+    required_env: ["SLACK_BOT_TOKEN"]
+  github:
+    enabled: true
+    required_env: ["GITHUB_TOKEN"]
+  crm:
+    enabled: true
+    required_env: ["CRM_API_KEY"]
+
+# Voice settings
+voice:
+  providers:
+    tts: "elevenlabs"  # or openai, edge-tts
+    stt: "whisper"     # whisper, faster-whisper
+  rate_limit_per_minute: 30
+  max_call_duration:
+    starter: 180
+    pro: 600
+    enterprise: 1800
+  max_concurrent_calls:
+    starter: 2
+    pro: 10
+    enterprise: 50
+
+# Billing
+billing:
+  stripe_enabled: true
+  tiers:
+    starter:
+      price_monthly: 49
+      calls_included: 100
+      features: ["voice", "sms", "booking", "missed_call_recovery"]
+    pro:
+      price_monthly: 149
+      calls_included: 500
+      features: ["voice", "sms", "booking", "missed_call_recovery", "calendar_sync", "whatsapp", "widget"]
+    enterprise:
+      price_monthly: 499
+      calls_included: 2000
+      features: ["voice", "sms", "booking", "missed_call_recovery", "calendar_sync", "whatsapp", "widget", "custom_integrations", "dedicated_support"]
+
+# Deployment
+deployment:
+  docker_compose: true
+  kubernetes: false
+  domain: "assistant.example.com"
+  ssl: true

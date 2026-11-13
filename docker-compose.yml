@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11437:11437"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11437/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  assistant-core:
+    build: .
+    ports:
+      - "8037:8037"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - OLLAMA_HOST=http://ollama:11437
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:3b}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-all-MiniLM-L6-v2}
+      - PERSONA_NAME=JARVIS
+      - PERSONA_STYLE=professional, concise, proactive
+      - VOICE_ENABLED=true
+      - AUTO_UPDATE=true
+    depends_on:
+      ollama:
+        condition: service_healthy
+      restart: unless-stopped
+
+volumes:
+  ollama_data:
