@@ -247,6 +247,12 @@ from retention_analytics_advanced_processing.analysis import (
 from retention_analytics_advanced_processing.agency import AgencyService
 from retention_analytics_advanced_processing.agency_connectors import AgencyConnectorService
 from retention_analytics_advanced_processing.performance import PerformanceAnalytics
+from retention_analytics_advanced_processing.commerce import CommerceAnalytics
+from retention_analytics_advanced_processing.agency_reports import (
+    AgencyQAService,
+    ReportDeckService,
+    RoleViewService,
+)
 
 for svc_cls in (
     Customer360Service,
@@ -301,6 +307,10 @@ for svc_cls in (
     AgencyService,
     AgencyConnectorService,
     PerformanceAnalytics,
+    CommerceAnalytics,
+    AgencyQAService,
+    RoleViewService,
+    ReportDeckService,
 ):
     svc_cls(registry).register()
 
@@ -4070,6 +4080,144 @@ async def record_deliverability(
     """Record a deliverability sample (bounce/spam/unsub by inbox provider)."""
     tenant_id = current_tenant(request, user)
     return await registry.invoke("analytics.performance", "record_deliverability", {"tenant_id": tenant_id, **body})
+
+
+# ---------------------------------------------------------------------------
+# Commerce analytics: time between orders, product paths, subscription LTV, RFM movement
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/v1/commerce/orders")
+async def record_order(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Record a purchase (feeds repeat purchase, product paths, subscription LTV, RFM)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("analytics.commerce", "record_order", {"tenant_id": tenant_id, **body})
+
+
+@app.get("/api/v1/commerce/time-between-orders")
+async def time_between_orders(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Median days between orders: all, after a campaign/flow, and on their own."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("analytics.commerce", "time_between_orders", {"tenant_id": tenant_id})
+
+
+@app.get("/api/v1/commerce/product-paths")
+async def product_paths(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    keyword: str = "",
+) -> dict[str, Any]:
+    """1st -> 2nd -> 3rd purchase paths, retention by product (optional keyword filter)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("analytics.commerce", "product_paths", {"tenant_id": tenant_id, "keyword": keyword})
+
+
+@app.get("/api/v1/commerce/subscription-ltv")
+async def subscription_ltv(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Subscription LTV by starting product at 1/3/6/12 months."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("analytics.commerce", "subscription_ltv", {"tenant_id": tenant_id})
+
+
+@app.get("/api/v1/commerce/one-time-to-subscriber")
+async def one_time_to_subscriber(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Which one-time purchases become subscribers, and how fast."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("analytics.commerce", "one_time_to_subscriber", {"tenant_id": tenant_id})
+
+
+@app.get("/api/v1/commerce/product-trends")
+async def product_trends(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Most new starts, fastest growing, most cancels, top add-on."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("analytics.commerce", "product_trends", {"tenant_id": tenant_id})
+
+
+@app.get("/api/v1/commerce/rfm-movement")
+async def rfm_movement(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """RFM segment movement over time + biggest moves with campaign attribution."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("analytics.commerce", "rfm_movement", {"tenant_id": tenant_id})
+
+
+# ---------------------------------------------------------------------------
+# Agency Q&A, role views, report decks
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/v1/agency/ask")
+async def agency_ask(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Ask a question in plain English: 'which clients are behind this month?'"""
+    return await registry.invoke("agency.qa", "ask", body)
+
+
+@app.get("/api/v1/agency/questions")
+async def agency_question_suggestions(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, Any]:
+    """Example questions the assistant understands."""
+    return await registry.invoke("agency.qa", "suggestions", {})
+
+
+@app.get("/api/v1/agency/roles")
+async def agency_roles(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, Any]:
+    """Role-based views: leadership, account manager, copywriter."""
+    return await registry.invoke("agency.roles", "roles", {})
+
+
+@app.get("/api/v1/agency/view")
+async def agency_role_view(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    role: str = "leadership",
+    agency_id: str = "default",
+    client_id: str = "",
+    tenant_id: str = "",
+) -> dict[str, Any]:
+    """The view for a role (leadership roster / client detail / creative ranking)."""
+    return await registry.invoke("agency.roles", "view", {
+        "role": role, "agency_id": agency_id, "client_id": client_id, "tenant_id": tenant_id})
+
+
+@app.post("/api/v1/agency/deck")
+async def build_agency_deck(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Build a branded, multi-slide report deck for a client."""
+    return await registry.invoke("agency.deck", "build", body)
+
+
+@app.post("/api/v1/agency/deck/render")
+async def render_agency_deck(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Render a deck to print-ready HTML (print to PDF)."""
+    return await registry.invoke("agency.deck", "render_html", body)
 
 
 # ---------------------------------------------------------------------------

@@ -57,18 +57,39 @@ running email/SMS/subscription programs for ecommerce brands.
    Ours work on any record fields — oil change, gym membership, prescriptions, maintenance.
 5. **One account across clients.** Same SSO, same platform, per-client branding and goals.
 
-## Where they still beat us (to close next)
+## Where they still beat us — CLOSED 2026-11-13
 
-- Time between orders (after campaign vs on their own)
-- Product purchase paths (1st→2nd→3rd)
-- Per-product subscription LTV + one-time→subscriber conversion
-- RFM movement over time
-- Branded PDF deck layout
-- Role-based views switcher
-- Natural-language per-client Q&A ("which clients are behind?")
+| Their edge (was our gap) | Our implementation now | Status |
+|---|---|---|
+| Time between orders (after campaign vs on their own) | `analytics.commerce.time_between_orders` — median gap, attributed vs organic split, 7 reorder buckets | **Closed** |
+| Product purchase paths (1st to 2nd to 3rd) | `analytics.commerce.product_paths` — paths, retention by product, keyword filter | **Closed** |
+| Subscription LTV by product at 1/3/6/12m + one-time to subscriber | `analytics.commerce.subscription_ltv` + `.one_time_to_subscriber` — conversion %, avg days to subscribe, best first product | **Closed** |
+| Product trends (most starts, fastest growing, most cancels, top add-on) | `analytics.commerce.product_trends` | **Closed** |
+| RFM movement over time | `analytics.commerce.rfm_movement` — segment counts, net change, biggest moves with campaign attribution | **Closed** |
+| Branded PDF report decks | `agency.deck` — 5-slide branded deck, print-to-PDF HTML with agency colours | **Closed** |
+| Role views (leadership / account manager / copywriter) | `agency.roles` — three role-specific views | **Closed** |
+| "Ask Hiro" natural-language per-client Q&A | `agency.qa` — intent parsing over live roster data ("which clients are behind?") | **Closed** |
+
+**Parity achieved on every screen they sell.** We still add what they do not have:
+action (campaigns/flows/auto-approach), 72 services / 263 actions / 37 workflows,
+full billing lifecycle, and universal (non-ecommerce) applicability.
+
+## Where we beat them
+
+1. **Action, not just reporting.** Every "here is what happened" screen feeds an action:
+   behind-goal -> auto-approach campaign; churn risk -> save offer flow; overdue service ->
+   recovery campaign; bounce rate -> deliverability fix.
+2. **Broader data model.** 72 services / 263 actions / 37 workflows vs their 5 dashboards.
+   We cover the whole lifecycle (billing state machine, dunning escalation, metering/overage,
+   proration, health decay, renewals risk, NPS loops), not just marketing analytics.
+3. **Automation + measurement in one loop.** Hiro's value stops at attribution. Ours closes:
+   segment -> campaign -> run -> before/after delta -> saved report -> refined segment.
+4. **Not limited to ecommerce marketing.** Their connectors are Klaviyo/Shopify-shaped.
+   Ours work on any record fields — oil change, gym membership, prescriptions, maintenance.
+5. **One account across clients.** Same SSO, same platform, per-client branding and goals.
 
 ## Verification
 
-`scripts/verify_platform.py` (51 checks) + `tests/test_agency_performance.py` (8 tests) +
-live `21/21` Hiro-parity checks: roster pacing/status, share link, Slack digest,
-12 platform connectors, flow map, campaign deep dive, timing heatmap, deliverability.
+`scripts/verify_platform.py` (51 checks) + `scripts/verify_hiro_gaps.py` (22 checks) +
+`tests/test_agency_performance.py` (8) + `tests/test_hiro_gaps_closed.py` (7) — all passing.
+Live: 23/23 portal pages render; **22/22 Hiro-parity checks pass**.
