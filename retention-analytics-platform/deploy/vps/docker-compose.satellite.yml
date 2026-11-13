@@ -1,0 +1,118 @@
+# Satellite stack for the shared Traefik edge (ip-lookup-proxy-1, network `web`).
+# Traefik owns 80/443; this stack publishes NOTHING on the host.
+#   docker compose -f deploy/vps/docker-compose.satellite.yml up -d --build
+# Required .env keys: TRAEFIK_HOST, POSTGRES_PASSWORD, REDIS_PASSWORD,
+# JWT_SECRET, WEBHOOK_SECRET, PII_ENCRYPTION_KEY
+services:
+  api:
+    image: retention-analytics-platform:latest
+    build:
+      context: /opt/sites
+      dockerfile: retention-analytics-platform/infra/docker/Dockerfile.api
+      args:
+        PROJECT: retention-analytics-platform
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-retention_analytics}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/1
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD}@redis:6379/2
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:?WEBHOOK_SECRET required}
+      PII_ENCRYPTION_KEY: ${PII_ENCRYPTION_KEY:?PII_ENCRYPTION_KEY required}
+      DATA_DIR: /data
+      PUBLIC_API_URL: https://${TRAEFIK_HOST:?TRAEFIK_HOST required}/api/v1
+    volumes:
+      - retention_data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [web, internal]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.retention-web.rule=Host(`${TRAEFIK_HOST:?set TRAEFIK_HOST in .env}`)
+      - traefik.http.routers.retention-web.entrypoints=websecure
+      - traefik.http.routers.retention-web.tls.certresolver=le
+      - traefik.http.services.retention-app.loadbalancer.server.port=47319
+      - traefik.http.routers.retention-web-insecure.rule=Host(`${TRAEFIK_HOST}`)
+      - traefik.http.routers.retention-web-insecure.entrypoints=web
+
+  workers:
+    image: retention-analytics-platform:latest
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-retention_analytics}
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/1
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD}@redis:6379/2
+      JWT_SECRET: ${JWT_SECRET}
+      DATA_DIR: /data
+    volumes:
+      - retention_data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks: [internal]
+    command: ["celery", "-A", "apps.workers.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
+
+  beat:
+    image: retention-analytics-platform:latest
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-retention_analytics}
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/1
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD}@redis:6379/2
+      DATA_DIR: /data
+    volumes:
+      - retention_data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks: [internal]
+    command: ["celery", "-A", "apps.workers.celery_app", "beat", "--loglevel=info"]
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      POSTGRES_DB: ${POSTGRES_DB:-retention_analytics}
+    volumes:
+      - retention_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-retention_analytics}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks: [internal]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD required} --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - retention_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks: [internal]
+
+volumes:
+  retention_data:
+  retention_pg:
+  retention_redis:
+
+networks:
+  web:
+    external: true
+  internal:

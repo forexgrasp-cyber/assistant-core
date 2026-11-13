@@ -1,0 +1,28 @@
+{
+  "_comment": "Render inputs for deploy/vps/deploy.sh. The deploy.sh is generated from shared-canonical-services/shared/deployment/deploy_service.py from this JSON; run `python scripts/check_deploy_generated.py --write` after editing. Site: Snapford Retention (repo retention-analytics-platform) behind the shared Traefik edge at retention.snapford.com.",
+  "deploy": {
+    "file": "deploy.sh",
+    "args": {
+      "repo_dir": "/opt/sites/retention-analytics-platform",
+      "image_name": "retention-analytics-platform:latest",
+      "health_url": "https://retention.snapford.com/health/ready",
+      "env_file": ".env",
+      "compose_project": "retention",
+      "compose_files": ["deploy/vps/docker-compose.satellite.yml"],
+      "build_context": "/opt/sites",
+      "health_timeout_s": 180,
+      "health_interval_s": 3,
+      "surface_urls": [
+        "https://retention.snapford.com/robots.txt|User-agent",
+        "https://retention.snapford.com/sitemap.xml|<loc>",
+        "https://retention.snapford.com/api/seo/manifest|",
+        "https://retention.snapford.com/api/seo/style/tokens.css|",
+        "https://retention.snapford.com/api/i18n/languages|",
+        "https://retention.snapford.com/api/me|"
+      ]
+    }
+  },
+  "cron": {
+    "_comment": "Not checked against a file - printed by --print-cron. backup daily 03:23, uptime every 5 min."
+  }
+}

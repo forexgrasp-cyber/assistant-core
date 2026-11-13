@@ -1,65 +1,103 @@
 # syntax=docker/dockerfile:1
 # Retention Analytics Platform — API image.
 #
-# BUILD CONTEXT = the directory that CONTAINS both repositories:
-#   - locally:  C:/Users/IhorLeshchuk/PycharmProjects
-#   - on the VPS: /opt/sites  (site clone + shared-canonical-services clone)
-# The shared package is a private git dependency, so it is copied from the
-# context instead of installed from GitHub.
+# Follows shared-canonical-services/docs/DOCKER_IMAGE_STANDARDS.md:
+#   - multi-stage (builder -> runtime); build tools never reach the runtime
+#   - shared canonical library consumed as a PINNED WHEEL from wheels/,
+#     never by copying source (COPY shared-canonical-services/ is prohibited)
+#   - non-root user, healthcheck, .dockerignore, target ~200-300 MB
+#
+# BUILD CONTEXT = the directory containing BOTH checkouts:
+#   locally:  C:/Users/IhorLeshchuk/PycharmProjects
+#   on VPS:   /opt/sites
+#   (so shared-canonical-services/wheels/*.whl is reachable)
 #
 #   podman build -f retention-analytics-platform/infra/docker/Dockerfile.api \
+#     --build-arg PROJECT=retention-analytics-platform \
 #     -t retention-analytics-platform:api .
 ARG PYTHON_VERSION=3.12-slim
 ARG PROJECT=retention-analytics-platform
+ARG SHARED_VERSION=2026.10.0
 
+# ---------------------------------------------------------------- builder
 FROM docker.io/library/python:${PYTHON_VERSION} AS builder
 ARG PROJECT
+ARG SHARED_VERSION
 WORKDIR /app
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    UV_COMPILE_BYTECODE=1 \
-    UV_NO_CACHE=0
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-RUN pip install --no-cache-dir uv
+# build deps only (never in the runtime stage)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Dependency manifest + the local packages the project ships (setuptools finds
-# them under ./packages) + the canonical shared checkout (path source).
-COPY ${PROJECT}/pyproject.toml ./
+# 1) canonical shared library as a pinned wheel (no source copy)
+COPY shared-canonical-services/wheels/ /tmp/wheels/
+RUN pip install --no-cache-dir --find-links /tmp/wheels \
+    "shared-canonical-services==${SHARED_VERSION}" \
+    && rm -rf /tmp/wheels
+
+# 2) app dependencies (requirements.txt mirrors pyproject; shared is already
+#    installed from the wheel above)
+COPY ${PROJECT}/infra/docker/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 3) the application itself (packages/ is a setuptools src-layout)
+COPY ${PROJECT}/pyproject.toml ${PROJECT}/README.md ./
 COPY ${PROJECT}/packages/ ./packages/
-COPY shared-canonical-services/ /shared-canonical-services/
+RUN pip install --no-cache-dir --no-deps .
 
-RUN uv sync --no-dev --no-cache
+# 4) Trim build-time-only and unused-at-runtime payloads BEFORE the runtime
+#    copy - pruning after the copy would leave the bytes in the lower layer.
+RUN rm -rf \
+        /usr/local/lib/python3.12/site-packages/numpy \
+        /usr/local/lib/python3.12/site-packages/numpy.libs \
+        /usr/local/lib/python3.12/site-packages/PIL \
+        /usr/local/lib/python3.12/site-packages/pillow.libs \
+        /usr/local/lib/python3.12/site-packages/pip \
+        /usr/local/lib/python3.12/site-packages/pip-*.dist-info \
+        /usr/local/lib/python3.12/site-packages/setuptools \
+        /usr/local/lib/python3.12/site-packages/pkg_resources \
+        /usr/local/lib/python3.12/site-packages/wheel \
+    && find /usr/local/lib/python3.12/site-packages -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null \
+    || true
 
+# ---------------------------------------------------------------- runtime
 FROM docker.io/library/python:${PYTHON_VERSION} AS runtime
 ARG PROJECT
 WORKDIR /app
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PATH="/app/.venv/bin:$PATH"
+    PATH="/usr/local/bin:$PATH"
 
+# runtime system deps only (libpq5 = postgres client; gosu = drop privileges)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
     libpq5 \
     gosu \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /root/.cache
 
-RUN groupadd -r appuser && useradd -r -g appuser -s /bin/false appuser
+# Python environment (app + deps + shared wheel, already installed and trimmed
+# in the builder so the copy layer carries only what the service needs)
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
-COPY --from=builder /app/.venv /app/.venv
-# The editable install points at /app/packages (setuptools src-layout), so the
-# packages tree must exist in the runtime image too.
-COPY --chown=appuser:appuser ${PROJECT}/packages/ ./packages/
-# The shared package is installed editable against /shared-canonical-services.
-COPY --chown=appuser:appuser shared-canonical-services/ /shared-canonical-services/
-COPY --chown=appuser:appuser ${PROJECT}/apps/ ./apps/
-
-RUN mkdir -p /data \
-    && chown -R appuser:appuser /app /data
+# application entrypoints (apps/ is not part of the installed package)
+COPY --chown=root:root ${PROJECT}/apps/ ./apps/
 COPY --chown=root:root ${PROJECT}/infra/docker/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
-USER root
+
+RUN groupadd -r appuser && useradd -r -g appuser -s /bin/false appuser \
+    && mkdir -p /data \
+    && chown -R appuser:appuser /app /data
 
 EXPOSE 47319
 
