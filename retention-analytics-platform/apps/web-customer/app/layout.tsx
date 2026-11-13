@@ -8,14 +8,19 @@ import Sidebar from "@/components/Sidebar";
 import Tour from "@/components/Tour";
 
 export const metadata: Metadata = {
-  title: "Retention Analytics — Customer Portal",
+  title: "Snapford Retention — Customer Portal",
   description:
-    "Stop churn before it happens. Automated retention workflows, multi-channel campaigns, and real-time analytics — all wired through one platform.",
+    "Retention analytics for subscription businesses: automated campaigns, dunning, churn prediction, health scores and NPS — measured before and after.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="stylesheet" href="/api/seo/style/tokens.css" />
+        <link rel="manifest" href="/api/seo/manifest" />
+        <meta name="theme-color" content="#4f46e5" />
+      </head>
       <body>
         <LangProvider>
           <ToastProvider>

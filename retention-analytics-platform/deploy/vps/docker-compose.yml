@@ -1,0 +1,142 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      POSTGRES_DB: ${POSTGRES_DB:-retention_analytics}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-retention_analytics}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    deploy:
+      resources:
+        limits: { cpus: "2", memory: 2G }
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD required} --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: 512M }
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.api
+    image: retention-analytics-platform:latest
+    restart: unless-stopped
+    env_file: [../../.env]
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-retention_analytics}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/1
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD}@redis:6379/2
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:?WEBHOOK_SECRET required}
+      RATE_LIMIT_STORAGE_URL: redis://:${REDIS_PASSWORD}@redis:6379/3
+      DATA_DIR: /data
+    volumes:
+      - appdata:/data
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:47319/health/ready',timeout=5)"]
+      interval: 10s
+      timeout: 6s
+      retries: 10
+      start_period: 25s
+    deploy:
+      replicas: 2
+      resources:
+        limits: { cpus: "1", memory: 1G }
+
+  workers:
+    image: retention-analytics-platform:latest
+    restart: unless-stopped
+    command: ["celery", "-A", "apps.workers.celery_app:celery_app", "worker", "--loglevel=info", "-Q", "default"]
+    env_file: [../../.env]
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-retention_analytics}
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/1
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD}@redis:6379/2
+      JWT_SECRET: ${JWT_SECRET}
+      DATA_DIR: /data
+    volumes:
+      - appdata:/data
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: 512M }
+
+  beat:
+    image: retention-analytics-platform:latest
+    restart: unless-stopped
+    command: ["celery", "-A", "apps.workers.celery_app:celery_app", "beat", "--loglevel=info"]
+    env_file: [../../.env]
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-retention_analytics}
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/1
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD}@redis:6379/2
+      DATA_DIR: /data
+    volumes:
+      - appdata:/data
+    depends_on:
+      redis: { condition: service_healthy }
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 256M }
+
+  portal:
+    build:
+      context: ../../apps/web-customer
+      dockerfile: ../../infra/docker/Dockerfile.web
+    image: retention-analytics-platform-portal:latest
+    restart: unless-stopped
+    environment:
+      API_BACKEND_URL: http://api:47319
+      NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-https://retention.snapford.com/api/v1}
+    depends_on:
+      - api
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 512M }
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:47318:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - certs:/etc/nginx/certs:ro
+    depends_on:
+      - api
+      - portal
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 256M }
+
+volumes:
+  pgdata:
+  redisdata:
+  appdata:
+  certs:

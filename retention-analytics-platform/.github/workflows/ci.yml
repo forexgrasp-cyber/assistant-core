@@ -1,10 +1,16 @@
 name: CI / Pre-push Gate
 
+# The shared VPS watcher owns deployment (shared/deployment/README.md): a push
+# is not a deploy, and a consumer workflow must not start on a push. CI runs
+# on demand (or from the developer's pre-push hook) and the watcher ships the
+# commit after the same health gate.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_e2e:
+        description: "Run the Playwright e2e suite"
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -138,6 +144,9 @@ jobs:
     name: E2E browser journeys
     runs-on: ubuntu-latest
     needs: docker-build
+    # Manual: browser e2e needs a Chrome image and a live stack; it is not a
+    # push-time gate (the shared watcher owns deployment).
+    if: github.event_name == 'workflow_dispatch' && (inputs.run_e2e == true || inputs.run_e2e == 'true')
     services:
       postgres:
         image: postgres:16-alpine
@@ -174,11 +183,13 @@ jobs:
         run: pytest tests/e2e/ -m e2e -q --tb=short
 
   deploy:
-    name: Deploy
+    name: Deploy images to GHCR
     runs-on: ubuntu-latest
     needs: [tests, security-scan, backup-drill, docker-build]
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
-    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+    # Manual only: the shared VPS watcher deploys the estate (a push is not a
+    # deploy). This job publishes images the watcher can pull.
+    if: github.event_name == 'workflow_dispatch'
+    environment: production
     steps:
       - uses: actions/checkout@v4
       - name: Set up Docker Buildx
@@ -197,7 +208,7 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ github.repository }}/api:${{ github.sha }}
-            ghcr.io/${{ github.repository }}/api:${{ github.ref == 'refs/heads/main' && 'latest' || 'staging' }}
+            ghcr.io/${{ github.repository }}/api:latest
       - name: Build and push web image
         uses: docker/build-push-action@v6
         with:
@@ -206,7 +217,7 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ github.repository }}/web:${{ github.sha }}
-            ghcr.io/${{ github.repository }}/web:${{ github.ref == 'refs/heads/main' && 'latest' || 'staging' }}
+            ghcr.io/${{ github.repository }}/web:latest
       - name: Deploy to environment
         run: |
           echo "Deploying ${{ github.sha }} to ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}"

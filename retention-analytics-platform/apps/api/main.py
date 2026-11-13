@@ -50,6 +50,7 @@ from retention_analytics_core.middleware import (
 )
 from apps.api.htmlview import maybe_html, metrics_to_html, wants_html
 from retention_analytics_core.platform_services import PlatformServices
+from retention_analytics_core.platform_surfaces import PlatformSurfaceService
 from retention_analytics_core.service_registry import ServiceRegistry
 from retention_analytics_core.tenancy import DEFAULT_TENANT, resolve_tenant
 from retention_analytics_core.workflows.engine import WorkflowEngine, WorkflowRun
@@ -265,6 +266,7 @@ for svc_cls in (
     DemoService,
     DataTransferService,
     ConnectorService,
+    PlatformSurfaceService,
     LifecycleService,
     DunningEngine,
     HealthEngine,
@@ -3811,6 +3813,31 @@ async def list_service_actions(request: Request, user: Annotated[CurrentUser, De
         ],
     }
     return maybe_html(request, data, "Action catalog")
+
+
+@app.get("/api/seo/manifest")
+async def seo_manifest() -> Any:
+    """Web-app manifest (Snapford platform surface)."""
+    return await registry.invoke("platform.surfaces", "manifest", {})
+
+
+@app.get("/api/seo/style/tokens.css")
+async def seo_tokens_css() -> Response:
+    """Design-token stylesheet shared with the portal <head>."""
+    css = await registry.invoke("platform.surfaces", "tokens_css", {})
+    return Response(content=css, media_type="text/css; charset=utf-8")
+
+
+@app.get("/api/i18n/languages")
+async def i18n_languages() -> Any:
+    """Platform locale surface: 20 locales with text directions."""
+    return await registry.invoke("platform.surfaces", "languages", {})
+
+
+@app.get("/api/me")
+async def api_me(request: Request) -> Any:
+    """Product identity surface (Snapford platform contract)."""
+    return await registry.invoke("platform.surfaces", "me", {"base_url": str(request.base_url).rstrip("/")})
 
 
 # ---------------------------------------------------------------------------

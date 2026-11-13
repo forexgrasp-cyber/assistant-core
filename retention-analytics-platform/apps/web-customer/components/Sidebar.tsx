@@ -12,6 +12,18 @@ const NAV = [
   "presets", "help", "settings",
 ] as const;
 
+// Snapford product switcher — mirrors shared/branding/product_registry.py.
+const SNAPFORD_PRODUCTS = [
+  { id: "dmarc", name: "Snapford DMARC", url: "https://dmarc.snapford.com" },
+  { id: "books", name: "Snapford Books", url: "https://books.snapford.com" },
+  { id: "janitorial", name: "Snapford Janitorial", url: "https://janitorial.snapford.com" },
+  { id: "seo", name: "Snapford SEO", url: "https://seo.snapford.com" },
+  { id: "community", name: "Snapford Community Hub", url: "https://community.snapford.com" },
+  { id: "news", name: "Snapford Newsletter Studio", url: "https://news.snapford.com" },
+  { id: "geo", name: "Snapford Geo Arbitrage", url: "https://geo.snapford.com" },
+  { id: "retention", name: "Snapford Retention", url: "https://retention.snapford.com" },
+];
+
 export default function Sidebar() {
   const pathname = usePathname();
   const { lang, setLang, t } = useI18n();
@@ -24,6 +36,20 @@ export default function Sidebar() {
           <span className="bg-indigo-500 text-white px-2 py-0.5 rounded text-xs">RA</span>
           <span className="text-sm">{t("appName")}</span>
         </Link>
+        {/* Snapford product switcher */}
+        <details className="ml-auto relative group">
+          <summary className="cursor-pointer list-none text-xs text-slate-400 hover:text-white flex items-center gap-1">
+            Products <span className="text-[10px]">▾</span>
+          </summary>
+          <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-700 rounded-lg shadow-xl py-1 z-50">
+            <a href="https://snapford.com" className="block px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800">🏠 Snapford home</a>
+            {SNAPFORD_PRODUCTS.map((p) => (
+              <a key={p.id} href={p.url} className="block px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800">
+                {p.name}
+              </a>
+            ))}
+          </div>
+        </details>
       </div>
 
       {/* Search trigger */}
