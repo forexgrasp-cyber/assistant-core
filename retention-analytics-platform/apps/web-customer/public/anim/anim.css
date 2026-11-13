@@ -1,20 +1,20 @@
 :root {
-  --background: 0 0% 100%;
-  --foreground: 221 39% 11%;
-  --card: 0 0% 100%;
-  --card-foreground: 221 39% 11%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 221 39% 11%;
-  --primary: 243 75% 59%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 0 0% 100%;
-  --secondary-foreground: 221 39% 11%;
-  --muted: 0 0% 100%;
-  --muted-foreground: 215 16% 47%;
-  --accent: 0 0% 100%;
-  --accent-foreground: 221 39% 11%;
-  --border: 221 39% 0%;
-  --ring: 243 75% 59%;
+  --background: 233 49% 7%;
+  --foreground: 232 100% 95%;
+  --card: 233 49% 9%;
+  --card-foreground: 232 100% 95%;
+  --popover: 233 49% 10%;
+  --popover-foreground: 232 100% 95%;
+  --primary: 234 89% 74%;
+  --primary-foreground: 233 49% 7%;
+  --secondary: 233 49% 16%;
+  --secondary-foreground: 232 100% 95%;
+  --muted: 233 49% 21%;
+  --muted-foreground: 232 40% 60%;
+  --accent: 233 49% 16%;
+  --accent-foreground: 232 100% 95%;
+  --border: 232 100% 7%;
+  --ring: 234 89% 74%;
   --font-sans: Inter, system-ui, sans-serif;
 }
 
@@ -317,23 +317,129 @@ html{scroll-behavior:smooth}
 .anim-compare-highlight .highlight-bar{position:absolute;top:0;left:0;width:3px;height:100%;background:var(--anim-primary,#6366f1);transform:scaleY(0);transform-origin:top;transition:transform .6s cubic-bezier(.4,0,.2,1)}
 .anim-compare-highlight.anim-visible .highlight-bar{transform:scaleY(1)}
 
+/* ═══ Animated Charts & Diagrams ═══ */
+.anim-chart-bar{display:flex;align-items:flex-end;gap:.25rem;height:200px}
+.anim-chart-bar .bar{width:100%;background:linear-gradient(180deg,var(--anim-primary,#6366f1),var(--anim-accent,#a855f7));border-radius:4px 4px 0 0;transform:scaleY(0);transform-origin:bottom;transition:transform .8s cubic-bezier(.4,0,.2,1);min-height:4px}
+.anim-chart-bar.anim-visible .bar{transform:scaleY(1)}
+.anim-chart-bar .bar:nth-child(1){transition-delay:0s}
+.anim-chart-bar .bar:nth-child(2){transition-delay:.08s}
+.anim-chart-bar .bar:nth-child(3){transition-delay:.16s}
+.anim-chart-bar .bar:nth-child(4){transition-delay:.24s}
+.anim-chart-bar .bar:nth-child(5){transition-delay:.32s}
+.anim-chart-bar .bar:nth-child(6){transition-delay:.40s}
+.anim-chart-bar .bar:nth-child(7){transition-delay:.48s}
+.anim-chart-bar .bar:nth-child(8){transition-delay:.56s}
+/* Horizontal bar chart */
+.anim-chart-bar-h{display:flex;flex-direction:column;gap:.5rem}
+.anim-chart-bar-h .bar-h{height:32px;background:linear-gradient(90deg,var(--anim-primary,#6366f1),var(--anim-accent,#a855f7));border-radius:0 4px 4px 0;transform:scaleX(0);transform-origin:left;transition:transform .8s cubic-bezier(.4,0,.2,1);display:flex;align-items:center;padding-left:.75rem;color:white;font-size:.75rem;font-weight:600}
+.anim-chart-bar-h.anim-visible .bar-h{transform:scaleX(1)}
+.anim-chart-bar-h .bar-h:nth-child(1){transition-delay:0s}
+.anim-chart-bar-h .bar-h:nth-child(2){transition-delay:.1s}
+.anim-chart-bar-h .bar-h:nth-child(3){transition-delay:.2s}
+.anim-chart-bar-h .bar-h:nth-child(4){transition-delay:.3s}
+.anim-chart-bar-h .bar-h:nth-child(5){transition-delay:.4s}
+/* Pie chart entrance */
+@keyframes pieReveal{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+.anim-chart-pie{position:relative;width:200px;height:200px;border-radius:50%;background:conic-gradient(var(--anim-primary,#6366f1) 0% 25%,var(--anim-accent,#a855f7) 25% 50%,#ec4899 50% 75%,#22c55e 75% 100%);animation:pieReveal 1.2s cubic-bezier(.4,0,.2,1) forwards;clip-path:inset(0 100% 0 0)}
+.anim-chart-pie.anim-visible{clip-path:inset(0)}
+/* Donut chart */
+.anim-chart-donut{width:200px;height:200px;border-radius:50%;background:conic-gradient(var(--anim-primary,#6366f1) 0% 30%,var(--anim-accent,#a855f7) 30% 55%,#ec4899 55% 80%,#22c55e 80% 100%);position:relative;animation:pieReveal 1.2s cubic-bezier(.4,0,.2,1) forwards;clip-path:inset(0 100% 0 0)}
+.anim-chart-donut.anim-visible{clip-path:inset(0)}
+.anim-chart-donut::after{content:'';position:absolute;top:25%;left:25%;width:50%;height:50%;border-radius:50%;background:var(--bg,#0f0f1a)}
+/* Line chart entrance */
+@keyframes lineGrow{from{width:0}to{width:100%}}
+.anim-chart-line{position:relative;height:160px;overflow:hidden}
+.anim-chart-line svg{width:100%;height:100%}
+.anim-chart-line .line-path{stroke-dasharray:1000;stroke-dashoffset:1000;transition:stroke-dashoffset 1.5s cubic-bezier(.4,0,.2,1)}
+.anim-chart-line.anim-visible .line-path{stroke-dashoffset:0}
+/* Stat number pop-in */
+.anim-chart-number{font-size:3rem;font-weight:800;display:inline-block;transform:scale(0);transition:transform .6s cubic-bezier(.4,0,.2,1)}
+.anim-chart-number.anim-visible{transform:scale(1)}
+.anim-chart-number .num-suffix{font-size:1.5rem;opacity:.6}
+/* Legend fade-in */
+.anim-chart-legend{display:flex;gap:1.5rem;flex-wrap:wrap;justify-content:center;margin-top:1rem}
+.anim-chart-legend .legend-item{display:flex;align-items:center;gap:.5rem;font-size:.85rem;opacity:0;transform:translateY(10px);transition:all .4s ease}
+.anim-chart-legend.anim-visible .legend-item{opacity:1;transform:translateY(0)}
+.anim-chart-legend .legend-item:nth-child(1){transition-delay:0s}
+.anim-chart-legend .legend-item:nth-child(2){transition-delay:.1s}
+.anim-chart-legend .legend-item:nth-child(3){transition-delay:.2s}
+.anim-chart-legend .legend-item:nth-child(4){transition-delay:.3s}
+.anim-chart-legend .legend-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+/* Comparison bars (side by side) */
+.anim-chart-compare{display:flex;gap:2rem;justify-content:center;align-items:flex-end}
+.anim-chart-compare .compare-group{text-align:center}
+.anim-chart-compare .compare-bar{width:48px;border-radius:4px 4px 0 0;transform:scaleY(0);transform-origin:bottom;transition:transform .8s cubic-bezier(.4,0,.2,1)}
+.anim-chart-compare.anim-visible .compare-bar{transform:scaleY(1)}
+.anim-chart-compare .compare-label{font-size:.75rem;margin-top:.5rem;color:var(--muted,#64748b)}
+
+/* ═══ SVG Path Draw Animations (Premium) ═══ */
+.anim-svg-draw svg path,.anim-svg-draw svg line,.anim-svg-draw svg circle,.anim-svg-draw svg polyline,.anim-svg-draw svg polygon{stroke-dasharray:var(--path-length,1000);stroke-dashoffset:var(--path-length,1000);transition:stroke-dashoffset 1.5s cubic-bezier(.4,0,.2,1);fill:none}
+.anim-svg-draw.anim-visible svg path,.anim-svg-draw.anim-visible svg line,.anim-svg-draw.anim-visible svg circle,.anim-svg-draw.anim-visible svg polyline,.anim-svg-draw.anim-visible svg polygon{stroke-dashoffset:0}
+.anim-svg-draw svg path:nth-child(2),.anim-svg-draw svg line:nth-child(2){transition-delay:.2s}
+.anim-svg-draw svg path:nth-child(3),.anim-svg-draw svg line:nth-child(3){transition-delay:.4s}
+.anim-svg-draw svg path:nth-child(4),.anim-svg-draw svg line:nth-child(4){transition-delay:.6s}
+.anim-svg-draw svg path:nth-child(5),.anim-svg-draw svg line:nth-child(5){transition-delay:.8s}
+.anim-svg-draw svg *{stroke:var(--anim-primary,#6366f1);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.anim-svg-draw-fill svg path,.anim-svg-draw-fill svg polygon{fill:var(--anim-primary,#6366f1);fill-opacity:0;transition:stroke-dashoffset 1.5s cubic-bezier(.4,0,.2,1),fill-opacity .6s ease .8s}
+.anim-svg-draw-fill.anim-visible svg path,.anim-svg-draw-fill.anim-visible svg polygon{stroke-dashoffset:0;fill-opacity:1}
+.anim-svg-draw-on-scroll{stroke-dashoffset:var(--path-length,1000)!important}
+.anim-svg-draw-on-scroll.anim-visible{stroke-dashoffset:0!important}
+
+/* ═══ Loading Sequence (Premium) ═══ */
+.anim-loading-screen{position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg,#0a0a1a);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .6s ease,visibility .6s ease}
+.anim-loading-screen.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.anim-loading-logo{font-size:2rem;font-weight:800;background:linear-gradient(135deg,var(--anim-primary,#6366f1),var(--anim-accent,#a855f7));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:2rem;animation:loadingPulse 1.5s ease-in-out infinite}
+@keyframes loadingPulse{0%,100%{opacity:.6;transform:scale(.98)}50%{opacity:1;transform:scale(1)}}
+.anim-loading-bar{width:200px;height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;margin-bottom:1rem}
+.anim-loading-bar-fill{height:100%;background:linear-gradient(90deg,var(--anim-primary,#6366f1),var(--anim-accent,#a855f7));border-radius:2px;width:0;transition:width .3s ease}
+.anim-loading-percent{font-size:.85rem;color:var(--muted,#64748b);font-variant-numeric:tabular-nums;min-width:3ch;text-align:center}
+.anim-loading-status{font-size:.75rem;color:var(--muted,#64748b);margin-top:.5rem;opacity:.6}
+.anim-loading-spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,.08);border-top-color:var(--anim-primary,#6366f1);border-radius:50%;animation:animSpin .8s linear infinite;margin-bottom:1.5rem}
+@keyframes loadingReveal{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+.anim-loading-reveal{animation:loadingReveal .8s cubic-bezier(.4,0,.2,1) forwards;animation-delay:.3s;clip-path:inset(0 0 100% 0)}
+
 /* ═══ Pinned Storytelling Sections (Premium) ═══ */
 .anim-story{position:relative;overflow:hidden}
 .anim-story-pin{position:relative}
 .anim-story-step{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative}
 .anim-story-step-content{max-width:800px;padding:2rem;opacity:0;transform:translateY(40px);transition:opacity .8s ease,transform .8s cubic-bezier(.4,0,.2,1)}
 .anim-story-step-content.active{opacity:1;transform:translateY(0)}
-/* Progress HUD lives in normal flow where the consumer places it (header
-   rows, captions) — never fixed to the viewport, which fought in-page
-   layouts and floated over content. Steps scroll in normal flow so each
-   beat's ScrollTrigger fires sequentially instead of all at once. */
-.anim-story-progress{display:inline-flex;flex-direction:row;gap:6px;align-items:center;opacity:0;transition:opacity .4s ease;pointer-events:none}
+.anim-story-progress{position:fixed;left:2rem;top:50%;transform:translateY(-50%);z-index:999;display:flex;flex-direction:column;gap:0;opacity:0;transition:opacity .4s ease;pointer-events:none}
 .anim-story-progress.visible{opacity:1;pointer-events:auto}
-.anim-story-progress-line{width:28px;height:3px;background:rgba(128,128,128,.25);position:relative;overflow:hidden;border-radius:2px}
-.anim-story-progress-line::after{content:'';position:absolute;inset:0;width:0;background:var(--anim-primary,#6366f1);transition:width .4s ease}
-.anim-story-progress-line.filled::after{width:100%}
-.anim-story-counter{font-size:.7rem;color:var(--muted,#64748b);font-weight:600;letter-spacing:.1em;opacity:0;transition:opacity .4s ease;white-space:nowrap}
+.anim-story-progress-line{width:2px;height:40px;background:rgba(255,255,255,.1);position:relative;overflow:hidden}
+.anim-story-progress-line::after{content:'';position:absolute;top:0;left:0;width:100%;height:0;background:var(--anim-primary,#6366f1);transition:height .4s ease}
+.anim-story-progress-line.filled::after{height:100%}
+.anim-story-counter{position:fixed;left:2rem;top:calc(50% + 100px);transform:translateY(-50%);font-size:.7rem;color:var(--muted,#64748b);font-weight:600;letter-spacing:.1em;opacity:0;transition:opacity .4s ease}
 .anim-story-counter.visible{opacity:1}
+
+/* ═══ Page Transitions (Premium) ═══ */
+.anim-page-transition{position:fixed;top:0;left:0;width:100%;height:100%;z-index:99998;pointer-events:none;overflow:hidden}
+.anim-page-transition.active{pointer-events:auto}
+.anim-page-transition-slice{position:absolute;top:0;width:calc(100% / var(--slices,6));height:100%;background:var(--anim-primary,#6366f1);transform:translateY(101%);transition:transform .5s cubic-bezier(.7,0,.3,1)}
+.anim-page-transition.active .anim-page-transition-slice{transform:translateY(0)}
+.anim-page-transition-slice:nth-child(1){transition-delay:0s}
+.anim-page-transition-slice:nth-child(2){transition-delay:.05s}
+.anim-page-transition-slice:nth-child(3){transition-delay:.1s}
+.anim-page-transition-slice:nth-child(4){transition-delay:.15s}
+.anim-page-transition-slice:nth-child(5){transition-delay:.2s}
+.anim-page-transition-slice:nth-child(6){transition-delay:.25s}
+.anim-page-transition.exit .anim-page-transition-slice{transform:translateY(-101%);transition:transform .5s cubic-bezier(.7,0,.3,1)}
+.anim-page-transition.exit .anim-page-transition-slice:nth-child(1){transition-delay:.25s}
+.anim-page-transition.exit .anim-page-transition-slice:nth-child(2){transition-delay:.2s}
+.anim-page-transition.exit .anim-page-transition-slice:nth-child(3){transition-delay:.15s}
+.anim-page-transition.exit .anim-page-transition-slice:nth-child(4){transition-delay:.1s}
+.anim-page-transition.exit .anim-page-transition-slice:nth-child(5){transition-delay:.05s}
+.anim-page-transition.exit .anim-page-transition-slice:nth-child(6){transition-delay:0s}
+/* Curtain variant */
+.anim-transition-curtain .anim-page-transition-slice{width:100%!important}
+/* Circle reveal variant */
+.anim-transition-circle .anim-page-transition-slice{border-radius:50%;width:200vmax!important;height:200vmax!important;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);transition:transform .6s cubic-bezier(.4,0,.2,1)}
+.anim-transition-circle.active .anim-page-transition-slice{transform:translate(-50%,-50%) scale(1)}
+.anim-transition-circle.exit .anim-page-transition-slice{transform:translate(-50%,-50%) scale(0)}
+/* Wipe variant */
+.anim-transition-wipe .anim-page-transition-slice{width:100%!important;transform:translateX(-101%)}
+.anim-transition-wipe.active .anim-page-transition-slice{transform:translateX(0)}
+.anim-transition-wipe.exit .anim-page-transition-slice{transform:translateX(101%)}
 
 /* ═══ Scroll Progress Ring (Premium — SVG + CSS scroll-driven) ═══ */
 .anim-progress-ring{position:fixed;top:1.5rem;right:1.5rem;z-index:9999;width:48px;height:48px;opacity:0;transition:opacity .3s ease;pointer-events:none}
@@ -376,6 +482,20 @@ html{scroll-behavior:smooth}
 .anim-reveal-up{opacity:0;transform:translate3d(0,40px,0);transition:opacity .8s ease,transform .8s cubic-bezier(.22,1,.36,1);will-change:opacity,transform}
 .anim-reveal-up.inview{opacity:1;transform:translate3d(0,0,0)}
 @media (prefers-reduced-motion:reduce){.anim-clip,.anim-mask,.anim-reveal-up{transition:none!important;clip-path:none!important;mask-image:none!important;-webkit-mask-image:none!important;opacity:1!important;transform:none!important}}
+
+
+/* — Intro video + loader (Platoon header-loader / intro mp4) — */
+.anim-intro{position:fixed;inset:0;z-index:99990;background:#000;display:flex;align-items:center;justify-content:center;transition:opacity .7s ease,visibility .7s ease}
+.anim-intro.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.anim-intro video{width:100%;height:100%;object-fit:cover}
+.anim-intro-skip{position:absolute;right:1.25rem;bottom:1.25rem;z-index:2;padding:.55rem 1.1rem;border:1px solid rgba(255,255,255,.4);border-radius:999px;background:rgba(0,0,0,.35);color:#fff;font:inherit;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:background .2s ease,transform .2s ease}
+.anim-intro-skip:hover{background:rgba(255,255,255,.15);transform:translateY(-2px)}
+.anim-loader{position:fixed;inset:0;z-index:99999;background:var(--background,#0a0a0c);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.9rem;transition:opacity .6s ease,visibility .6s ease}
+.anim-loader.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.anim-loader-logo{font-weight:800;letter-spacing:.18em;text-transform:uppercase;font-size:1.1rem}
+.anim-loader-bar{width:180px;height:2px;background:rgba(128,128,128,.25);overflow:hidden;border-radius:2px}
+.anim-loader-bar-fill{display:block;height:100%;width:0;background:currentColor;animation:animLoaderFill 1.6s ease-in-out infinite}
+@keyframes animLoaderFill{0%{width:0}55%{width:78%}100%{width:100%}}
 
 
 /* -- Custom cursor morphing into a marquee label (hugeinc data-cursor) -- */
@@ -438,6 +558,13 @@ html{scroll-behavior:smooth}
 [data-scroll-read] .sr-word{opacity:.22;transition:opacity .25s ease}
 [data-scroll-read] .sr-word.read{opacity:1}
 @media (prefers-reduced-motion:reduce){[data-scroll-read] .sr-word{opacity:1!important}}
+
+
+/* -- Progress bars: width/height bound to scroll progress (zrk cost bars) -- */
+.anim-pbar{height:10px;border-radius:6px;background:rgba(128,128,128,.18);overflow:hidden}
+.anim-pbar-fill{display:block;height:100%;width:0;background:var(--primary,#888);border-radius:6px;will-change:width}
+.anim-pbar-v{width:10px;height:100%}
+.anim-pbar-v .anim-pbar-fill{width:100%;height:0}
 
 
 /* -- Glow pulse on text/shadows (glow-headline / glow-pulse) -- */

@@ -57,6 +57,12 @@ export default function Landing() {
     <div className="max-w-5xl mx-auto ra-landing" data-page-root>
       <AnimBoot />
 
+      {/* branded intro video (skippable) */}
+      <div className="anim-intro" data-max-wait="7">
+        <video src="/brand/intro.mp4" poster="/brand/intro-poster.jpg" muted playsInline preload="auto" />
+        <button className="anim-intro-skip" type="button">Skip ✕</button>
+      </div>
+
       <style>{`
         .ra-landing .hero{position:relative;border-radius:24px;padding:56px 40px;margin-top:8px;
           background:linear-gradient(140deg,#0b0d1f 0%,#141031 55%,#1b1140 100%);
@@ -66,9 +72,7 @@ export default function Landing() {
         .ra-landing .hero h1{color:#fff;font-size:clamp(2.2rem,5vw,3.6rem);line-height:1.05;letter-spacing:-.02em;font-weight:800;margin:.8rem 0 1rem}
         .ra-landing .hero p{color:#a5b0d8;font-size:1.1rem;max-width:36rem}
         .ra-landing .chart-card{margin-top:28px;background:rgba(10,12,30,.7);border:1px solid rgba(129,140,248,.25);
-          border-radius:16px;padding:18px;position:relative;overflow:hidden}
-        .ra-landing .chart-video{position:absolute;right:10px;bottom:10px;width:150px;height:84px;object-fit:cover;
-          border-radius:10px;border:2px solid rgba(129,140,248,.5);opacity:.9}
+          border-radius:16px;padding:18px}
         .ra-landing .stat .num{color:#fff;font-size:1.6rem;font-weight:800;font-variant-numeric:tabular-nums}
         .ra-landing .stat .lbl{color:#8b93bd;font-size:.78rem}
         .ra-landing .logo-marquee{border-block:1px solid #e5e7eb;padding:12px 0;margin:40px 0}
@@ -102,7 +106,6 @@ export default function Landing() {
         {/* animated retention chart */}
         <div className="chart-card anim-tilt-scene">
           <div className="anim-tilt" data-tilt-max="4">
-            <video className="chart-video" src="/brand/intro.mp4" poster="/brand/intro-poster.jpg" muted autoPlay loop playsInline aria-hidden="true" />
             <svg viewBox="0 0 640 220" width="100%" aria-label="Retention rising, churn falling">
               <defs>
                 <linearGradient id="retFill" x1="0" y1="0" x2="0" y2="1">
@@ -159,26 +162,23 @@ export default function Landing() {
             </div>
             <span className="anim-story-counter">1 / 3</span>
           </div>
-          {/* Beats flow in normal document order: absolutely stacked steps
-              share one bounding box, so every ScrollTrigger fired at the same
-              scroll position and all beats activated at once. */}
-          <div className="anim-story-track">
-            <div className="anim-story-pin pipe-track">
-              <div className="anim-story-step">
+          <div className="anim-story-track" style={{ height: "280vh" }}>
+            <div className="anim-story-pin pipe-track" style={{ position: "sticky", top: 40, minHeight: "60vh", display: "grid", placeItems: "center" }}>
+              <div className="anim-story-step" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
                 <div className="anim-story-step-content" style={{ textAlign: "center" }}>
                   <span className="step-ico">📥</span>
                   <h3 className="anim-glow" style={{ color: "#fff", fontSize: "1.8rem" }}>Events in.</h3>
                   <p style={{ color: "#a5b0d8" }}>Every customer action lands in one idempotent stream.</p>
                 </div>
               </div>
-              <div className="anim-story-step">
+              <div className="anim-story-step" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
                 <div className="anim-story-step-content" style={{ textAlign: "center" }}>
                   <span className="step-ico">⚙️</span>
                   <h3 className="anim-glow" style={{ color: "#fff", fontSize: "1.8rem" }}>Workflows fire.</h3>
                   <p style={{ color: "#a5b0d8" }}>Triggers match events to durable, step-by-step pipelines.</p>
                 </div>
               </div>
-              <div className="anim-story-step">
+              <div className="anim-story-step" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
                 <div className="anim-story-step-content" style={{ textAlign: "center" }}>
                   <span className="step-ico">📈</span>
                   <h3 className="anim-glow" style={{ color: "#fff", fontSize: "1.8rem" }}>Retention climbs.</h3>
