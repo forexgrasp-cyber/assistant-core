@@ -18,7 +18,15 @@ from retention_analytics_core.repository import data_root
 from retention_analytics_core.service_registry import ServiceRegistry
 from retention_analytics_shared_config import get_settings
 
-_SHARED = Path(__file__).resolve().parents[4] / "shared-canonical-services"
+# The canonical shared package is normally installed (pip/uv), so import it
+# directly. Only fall back to a source-tree sibling when it is not installed
+# (e.g. running from a checkout without an editable install).
+try:  # pragma: no cover - import path depends on the environment
+    import shared  # noqa: F401
+
+    _SHARED = Path(shared.__file__).resolve().parent.parent
+except Exception:  # pragma: no cover
+    _SHARED = Path(__file__).resolve().parents[2] / "shared-canonical-services"
 if str(_SHARED) not in sys.path:
     sys.path.insert(0, str(_SHARED))
 

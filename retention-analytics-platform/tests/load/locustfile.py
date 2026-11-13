@@ -6,6 +6,8 @@ Smoke-level: 10 users, 10s. Run with:
 
 from __future__ import annotations
 
+import os
+
 from locust import HttpUser, between, task
 
 
@@ -13,7 +15,7 @@ class PlatformUser(HttpUser):
     wait_time = between(0.5, 2.0)
 
     def on_start(self) -> None:
-        self.headers = {"Authorization": "Bearer dev-token"}
+        self.headers = {"Authorization": "Bearer " + os.environ.get("API_TOKEN", "dev-token")}
 
     @task(3)
     def health(self) -> None:

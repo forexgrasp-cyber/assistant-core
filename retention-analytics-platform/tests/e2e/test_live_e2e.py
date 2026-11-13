@@ -24,7 +24,7 @@ import uuid
 import pytest
 
 BASE = os.environ.get("API_URL", "http://127.0.0.1:47319")
-H = {"Authorization": "Bearer dev-token", "Content-Type": "application/json"}
+H = {"Authorization": "Bearer " + os.environ.get("API_TOKEN", "dev-token"), "Content-Type": "application/json"}
 TENANT = "00000000-0000-0000-0000-000000000001"
 
 
