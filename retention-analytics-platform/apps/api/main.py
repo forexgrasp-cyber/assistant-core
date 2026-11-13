@@ -238,6 +238,12 @@ from retention_analytics_advanced_processing.analytics import (
     RootCauseService,
 )
 from retention_analytics_advanced_processing.annotations import AnnotationService
+from retention_analytics_advanced_processing.analysis import (
+    AdvancedSegmentation,
+    AutoApproachService,
+    NextBestActionService,
+    TailoredContentService,
+)
 
 for svc_cls in (
     Customer360Service,
@@ -285,6 +291,10 @@ for svc_cls in (
     CohortComparison,
     RootCauseService,
     AnnotationService,
+    AdvancedSegmentation,
+    NextBestActionService,
+    AutoApproachService,
+    TailoredContentService,
 ):
     svc_cls(registry).register()
 
@@ -3708,6 +3718,129 @@ async def list_annotations(
 ) -> dict[str, Any]:
     tenant_id = current_tenant(request, user)
     return await registry.invoke("analytics.annotations", "list", {"tenant_id": tenant_id, "metric": metric})
+
+
+# ---------------------------------------------------------------------------
+# Advanced customer analysis: segmentation, next best action, auto-approach, content
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/v1/analysis/fields")
+async def analysis_fields(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, Any]:
+    """Computed fields + types available for segmentation (the predicate builder schema)."""
+    return await registry.invoke("segmentation.advanced", "fields", {})
+
+
+@app.get("/api/v1/analysis/profiles")
+async def analysis_profiles(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    include_churn_risk: bool = True,
+) -> dict[str, Any]:
+    """Customer records enriched with computed fields (due, health tier, LTV tier, churn risk, rank)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("segmentation.advanced", "profiles", {"tenant_id": tenant_id, "include_churn_risk": include_churn_risk})
+
+
+@app.post("/api/v1/analysis/segments/preview")
+async def preview_segment(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Preview who a criteria set matches + aggregate value at risk."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("segmentation.advanced", "preview", {"tenant_id": tenant_id, **body})
+
+
+@app.post("/api/v1/analysis/segments")
+async def save_segment(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Save a computed segment for reuse as a campaign target."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("segmentation.advanced", "save", {"tenant_id": tenant_id, **body})
+
+
+@app.get("/api/v1/analysis/segments")
+async def list_advanced_segments(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("segmentation.advanced", "list", {"tenant_id": tenant_id})
+
+
+@app.get("/api/v1/analysis/next-best-action")
+async def next_best_action(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    customer_id: str = "",
+    email: str = "",
+    include_maintain: bool = False,
+) -> dict[str, Any]:
+    """What to do about a customer next (or for every customer)."""
+    tenant_id = current_tenant(request, user)
+    if customer_id or email:
+        return await registry.invoke("customers.next_best_action", "recommend", {
+            "tenant_id": tenant_id, "customer_id": customer_id, "email": email})
+    return await registry.invoke("customers.next_best_action", "recommend_all", {
+        "tenant_id": tenant_id, "include_maintain": include_maintain})
+
+
+@app.get("/api/v1/auto-approach/triggers")
+async def auto_approach_triggers(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, Any]:
+    """The automatic-approach triggers (service due, overdue, churn risk, low health)."""
+    return await registry.invoke("automation.auto_approach", "triggers", {})
+
+
+@app.post("/api/v1/auto-approach/scan")
+async def auto_approach_scan(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Preview who each automatic trigger would approach right now."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("automation.auto_approach", "scan", {"tenant_id": tenant_id})
+
+
+@app.post("/api/v1/auto-approach/run")
+async def auto_approach_run(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Run the automatic approach: create + execute campaigns for every matching trigger."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("automation.auto_approach", "run", {"tenant_id": tenant_id, **body})
+
+
+@app.post("/api/v1/campaigns/{campaign_id}/template")
+async def set_campaign_template(
+    campaign_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Set the tailored message content for a campaign (with segment overrides)."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("campaigns.templates", "set_template", {
+        "tenant_id": tenant_id, "campaign_id": campaign_id, **body})
+
+
+@app.post("/api/v1/campaigns/{campaign_id}/render")
+async def render_campaign_message(
+    campaign_id: str,
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Render a campaign's tailored message for one member."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("campaigns.templates", "render", {
+        "tenant_id": tenant_id, "campaign_id": campaign_id, **body})
 
 
 # ---------------------------------------------------------------------------

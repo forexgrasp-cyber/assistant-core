@@ -40,6 +40,12 @@ export default function Campaigns() {
   const [metrics, setMetrics] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
   const [runningId, setRunningId] = useState<string | null>(null);
+  const [template, setTemplate] = useState<any>(null);
+  const [tplSubject, setTplSubject] = useState("");
+  const [tplBody, setTplBody] = useState("");
+  const [tplChannel, setTplChannel] = useState("email");
+  const [autoScan, setAutoScan] = useState<any>(null);
+  const [autoMsg, setAutoMsg] = useState("");
 
   const load = () => {
     apiGet("/campaigns").then((d: any) => setCampaigns(d.campaigns ?? [])).catch(() => {});
@@ -112,6 +118,38 @@ export default function Campaigns() {
     setSelectedFlows((prev) => prev.includes(fid) ? prev.filter((f) => f !== fid) : [...prev, fid]);
   };
 
+  const loadTemplate = async (cid: string) => {
+    const r: any = await apiPost(`/campaigns/${cid}/template`, {
+      name: "Primary", channel: tplChannel,
+      subject: tplSubject || `Hi {{first_name}} — your {{service_name}} is due`,
+      body: tplBody || "Hi {{first_name}}, your {{service_name}} is due on {{next_due_date}} ({{days_until_due}} days). Book now: {{booking_url}}",
+    });
+    setTemplate(r.template);
+    toast("Template saved — messages now render per customer", "success");
+  };
+
+  const renderPreview = async (cid: string) => {
+    const r: any = await apiPost(`/campaigns/${cid}/render`, {
+      member: { name: "Maria Garcia", email: "maria@x.com", plan: "premium", mrr: 800,
+                service_name: "oil change", next_due_date: "2026-12-01", days_until_due: 5 },
+    });
+    setTemplate({ ...template, rendered: r });
+  };
+
+  const scanAuto = async () => {
+    setAutoMsg("Scanning…");
+    const r: any = await apiPost("/auto-approach/scan");
+    setAutoScan(r);
+    setAutoMsg("");
+  };
+
+  const runAuto = async () => {
+    setAutoMsg("Running automatic approach…");
+    const r: any = await apiPost("/auto-approach/run", {});
+    setAutoMsg(`Created and ran ${r.campaigns_created} campaigns: ` + r.results.map((x: any) => `${x.trigger} (${x.matched} matched, ${x.outcomes} executions)`).join(", "));
+    load();
+  };
+
   const goalInfo = goals[goal];
 
   return (
@@ -139,10 +177,67 @@ export default function Campaigns() {
         <span className="bg-purple-500/20 border border-purple-400/40 px-2 py-1 rounded">REPORTS</span>
       </div>
 
+      {/* Automatic approach */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="font-semibold text-gray-900 text-sm">Automatic approach</h3>
+            <p className="text-xs text-gray-400">Finds customers who need contacting (service due, overdue, churn risk, low health) and runs the right campaign for them.</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={scanAuto} className="px-3 py-1.5 border border-gray-300 rounded text-xs hover:bg-gray-50">Scan</button>
+            <button onClick={runAuto} className="px-3 py-1.5 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700">Run now</button>
+          </div>
+        </div>
+        {autoMsg && <p className="text-xs text-indigo-600 mb-2">{autoMsg}</p>}
+        {autoScan && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {Object.entries(autoScan.triggers).map(([key, v]: [string, any]) => (
+              <div key={key} className="bg-gray-50 rounded p-3">
+                <p className="text-lg font-bold text-gray-900">{v.count}</p>
+                <p className="text-xs text-gray-500">{key.replace(/_/g, " ")}</p>
+                {v.customers?.slice(0, 2).map((c: any, i: number) => (
+                  <p key={i} className="text-[10px] text-gray-400 truncate">{c.name || c.email} — {c.reason}</p>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Tailored content editor */}
+      {selected && (
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
+          <h3 className="font-semibold text-gray-900 text-sm mb-1">Tailored message for “{selected.name}”</h3>
+          <p className="text-xs text-gray-400 mb-3">Variables render per customer: {"{{first_name}}"}, {"{{service_name}}"}, {"{{next_due_date}}"}, {"{{days_until_due}}"}, {"{{plan}}"}, {"{{offer}}"}</p>
+          <div className="grid grid-cols-3 gap-2 mb-2">
+            <select value={tplChannel} onChange={(e) => setTplChannel(e.target.value)} className="border border-gray-300 rounded px-2 py-1.5 text-sm">
+              <option value="email">email</option><option value="sms">sms</option><option value="push">push</option>
+            </select>
+            <input value={tplSubject} onChange={(e) => setTplSubject(e.target.value)} placeholder="Subject" className="col-span-2 border border-gray-300 rounded px-2 py-1.5 text-sm" />
+          </div>
+          <textarea value={tplBody} onChange={(e) => setTplBody(e.target.value)} rows={3}
+            placeholder="Hi {{first_name}}, your {{service_name}} is due on {{next_due_date}}..." className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono" />
+          <div className="flex gap-2 mt-2">
+            <button onClick={() => loadTemplate(selected.campaign_id)} className="px-3 py-1.5 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700">Save template</button>
+            <button onClick={() => renderPreview(selected.campaign_id)} className="px-3 py-1.5 border border-gray-300 rounded text-xs hover:bg-gray-50">Preview for Maria</button>
+            {template?.rendered && (
+              <div className="flex-1 bg-gray-50 border border-gray-100 rounded p-2 text-xs">
+                <p className="font-medium">{template.rendered.subject}</p>
+                <p className="text-gray-600">{template.rendered.body}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: campaign list */}
         <div className="space-y-2">
-          <h3 className="font-semibold text-gray-900 text-sm">Your campaigns ({campaigns.length})</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900 text-sm">Your campaigns ({campaigns.length})</h3>
+            <button onClick={scanAuto} className="text-xs text-indigo-600 hover:underline">Auto-approach</button>
+          </div>
           {campaigns.length === 0 && <p className="text-sm text-gray-400">None yet — build one below.</p>}
           {campaigns.map((c) => (
             <button key={c.campaign_id} onClick={() => { setSelected(c); setResults(c.results); }}
