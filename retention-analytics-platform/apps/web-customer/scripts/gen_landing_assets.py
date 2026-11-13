@@ -1,99 +1,67 @@
-"""Generate animation + brand-video assets for the web-customer landing.
+"""Generate landing animation assets (shared style_engines package). v3-bare-js
 
-Outputs:
-    public/anim/anim.css, public/anim/anim.js   (style_engines package)
-    public/brand/intro.mp4, intro-poster.jpg    (LandingVideoService 'retention' scene)
-
-Usage (from apps/web-customer):
-    python scripts/gen_landing_assets.py
+Writes anim.css + anim.js (BARE js — no <script> wrappers, so it parses as an
+external file) into the framework's static dir, plus brand video + story JSON.
 """
-
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
 APP = Path(__file__).resolve().parent.parent
-REPO = APP.parent.parent
-SHARED = REPO.parent / "shared-canonical-services"
+# Deterministically find THIS checkout: walking up from a sibling project
+# never passes through shared-canonical-services (projects are siblings, not
+# children), which used to fall through to site-packages -- where an older
+# installed wheel silently shadowed the repo (15 project topics vs 19).
+_CANDIDATES = [APP, *APP.parents, Path(r"C:/Users/IhorLeshchuk/PycharmProjects/shared-canonical-services")]
+SHARED = next((p for p in _CANDIDATES if p.name == "shared-canonical-services"), _CANDIDATES[-1])
 if str(SHARED) not in sys.path:
     sys.path.insert(0, str(SHARED))
 
-from shared.branding import generate_landing_video  # noqa: E402
-from shared.style_engines import (  # noqa: E402
-    AnimationOptions,
-    generate_animation_css,
-    generate_animation_js,
-    generate_theme_css,
-)
+from shared.style_engines import AnimationOptions, generate_animation_css, generate_animation_js, generate_theme_css  # noqa: E402
 
-# Dark SaaS analytics theme: deep navy, indigo/violet accent, emerald data color.
-THEME_TOKENS = {
-    "background_color": "rgb(9, 11, 26)",
-    "text_color": "rgb(232, 235, 255)",
-    "link_color": "rgb(129, 140, 248)",
-    "heading_color": "rgb(255, 255, 255)",
+# Flask apps serve static from <pkg>/static at /static; everyone else uses public/ at /.
+FLASK = (APP / "app.py").is_file() or any((APP / "travel_alerts").is_dir() for _ in [0])
+STATIC_DIR = None
+for cand in ["travel_alerts/web/static", "web/static", "static", "public"]:
+    if (APP / cand).is_dir():
+        STATIC_DIR = APP / cand
+        break
+if STATIC_DIR is None:
+    STATIC_DIR = APP / "public"
+STATIC_PREFIX = "/static" if str(STATIC_DIR).replace("\\", "/").endswith("/static") else ""
+
+TOKENS = {
+    "background_color": "rgb(255, 255, 255)",
+    "text_color": "rgb(17, 24, 39)",
+    "link_color": "rgb(79, 70, 229)",
+    "heading_color": "rgb(17, 24, 39)",
     "font_family": "Inter, system-ui, sans-serif",
-    "color_palette": [
-        "rgb(9, 11, 26)",
-        "rgb(232, 235, 255)",
-        "rgb(129, 140, 248)",
-        "rgb(52, 211, 153)",
-        "rgb(251, 113, 133)",
-    ],
+    "color_palette": ["rgb(255,255,255)", "rgb(17,24,39)", "rgb(79,70,229)", "rgb(16,185,129)", "rgb(100,116,139)"],
 }
-
 PRESET = {
-    "level": "premium",
-    "gsap_enabled": True,
-    "split_scrub": True,
-    "text_fade_blur": True,
-    "scroll_read": True,
-    "clip_reveal": True,
-    "reveal_group": True,
-    "marquee": True,
-    "counting_number": True,
-    "cursor_marquee": True,
-    "btn_hover_fill": True,
-    "glow": True,
-    "tilt_3d": True,
-    "wipe_mask": True,
-    "svg_draw": True,
+    "level": "premium", "gsap_enabled": True, "split_scrub": True, "text_fade_blur": True,
+    "clip_reveal": True, "reveal_group": True, "marquee": True, "counting_number": True,
+    "cursor_marquee": True, "btn_hover_fill": True, "glow": True, "tilt_3d": True,
+    "scroll_read": True, "wipe_mask": True, "scroll_progress_ring": True, "progressive_blur": True,
+    "parallax_intensity": 0.3, "reduced_motion": "respect",
+    "intro_video": False,  # NO blocking overlay — video is embedded inline instead
     "pinned_storytelling": True,
-    "intro_video": True,
-    "loading_sequence": True,
-    "page_transitions": True,
-    "scroll_progress_ring": True,
-    "progress_bars": True,
-    "progressive_blur": True,
-    "chart_animations": True,
-    "parallax_intensity": 0.3,
-    "animated_grain": False,
-    "noise_overlay": True,
-    "reduced_motion": "respect",
 }
 
 
 def main() -> int:
-    anim = APP / "public" / "anim"
-    brand = APP / "public" / "brand"
-    anim.mkdir(parents=True, exist_ok=True)
-    brand.mkdir(parents=True, exist_ok=True)
-
+    anim_dir = STATIC_DIR / "anim"
+    brand_dir = STATIC_DIR / "brand"
+    anim_dir.mkdir(parents=True, exist_ok=True)
+    brand_dir.mkdir(parents=True, exist_ok=True)
     opts = AnimationOptions.from_dict(dict(PRESET))
-    css = generate_theme_css(THEME_TOKENS) + "\n" + generate_animation_css(opts)
-    js = generate_animation_js(opts)
-    (anim / "anim.css").write_text(css, encoding="utf-8")
-    (anim / "anim.js").write_text(js, encoding="utf-8")
-    print(f"[+] {anim/'anim.css'} ({len(css)} B), {anim/'anim.js'} ({len(js)} B)")
-
-    resp = generate_landing_video(
-        "retention", brand / "intro.mp4", poster_path=brand / "intro-poster.jpg", seconds=5, fps=24
-    )
-    if not resp.success:
-        print(f"[!] video failed: {resp.error}")
-        return 1
-    print(f"[+] {resp.data.get('path')} ({resp.data.get('format')}) + poster")
+    css = generate_theme_css(TOKENS) + "\n" + generate_animation_css(opts)
+    js = generate_animation_js(opts, inline=False)  # bare JS: safe as external file
+    (anim_dir / "anim.css").write_text(css, encoding="utf-8")
+    (anim_dir / "anim.js").write_text(js, encoding="utf-8")
+    print(f"[+] {anim_dir} ({len(css)}B css, {len(js)}B js) prefix={STATIC_PREFIX or '/'}")
     return 0
 
 
