@@ -1569,13 +1569,20 @@ async def list_churn_at_risk(
 async def classify_feedback(
     request: Request,
     user: Annotated[CurrentUser, Depends(get_current_user)],
-    text: str,
+    body: dict[str, Any] | None = Body(default=None),
+    text: str = "",
     client_id: str = "",
     mrr: float = 0,
 ) -> dict[str, Any]:
-    """Classify freeform feedback. Competitor: Churnkey Feedback AI."""
+    """Classify freeform feedback. Accepts a JSON body or query params."""
     tenant_id = current_tenant(request, user)
-    return await registry.invoke("ai.feedback", "classify", {"tenant_id": tenant_id, "client_id": client_id, "text": text, "mrr": mrr})
+    payload = body or {}
+    return await registry.invoke("ai.feedback", "classify", {
+        "tenant_id": tenant_id,
+        "text": payload.get("text", text),
+        "client_id": payload.get("client_id", client_id),
+        "mrr": payload.get("mrr", mrr),
+    })
 
 
 @app.get("/api/v1/ai/feedback/themes")
@@ -1591,13 +1598,20 @@ async def feedback_themes(
 async def recommend_offer(
     request: Request,
     user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] | None = Body(default=None),
     churn_reason: str = "general",
     churn_probability: float = 0.5,
     mrr: float = 0,
 ) -> dict[str, Any]:
-    """Recommend best retention offer. Competitor: Churnkey Adaptive/Dynamic Offers."""
+    """Recommend the best retention offer for a churn reason. Accepts a JSON body or query params."""
     tenant_id = current_tenant(request, user)
-    return await registry.invoke("ai.offers", "recommend", {"tenant_id": tenant_id, "churn_reason": churn_reason, "churn_probability": churn_probability, "mrr": mrr})
+    payload = body or {}
+    return await registry.invoke("ai.offers", "recommend", {
+        "tenant_id": tenant_id,
+        "churn_reason": payload.get("churn_reason", churn_reason),
+        "churn_probability": payload.get("churn_probability", churn_probability),
+        "mrr": payload.get("mrr", mrr),
+    })
 
 
 # ---------------------------------------------------------------------------

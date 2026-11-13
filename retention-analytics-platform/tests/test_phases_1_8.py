@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 
 from retention_analytics_core.service_registry import ServiceRegistry
@@ -136,11 +138,13 @@ async def test_alerts(registry: ServiceRegistry) -> None:
 
 @pytest.mark.asyncio
 async def test_renewal_forecast(registry: ServiceRegistry) -> None:
-    await registry.invoke("cs.renewals", "track", {"tenant_id": TENANT, "client_id": "c1", "arr": 12000, "renews_at": "2026-12-01"})
-    await registry.invoke("cs.renewals", "track", {"tenant_id": TENANT, "client_id": "c2", "arr": 6000, "renews_at": "2026-12-15"})
-    r = await registry.invoke("cs.renewals", "forecast", {"tenant_id": TENANT})
+    # isolated tenant so live-seeded renewals elsewhere can't pollute this assertion
+    tenant = f"renewal-test-{uuid.uuid4().hex[:8]}"
+    await registry.invoke("cs.renewals", "track", {"tenant_id": tenant, "client_id": "c1", "arr": 12000, "renews_at": "2026-12-01"})
+    await registry.invoke("cs.renewals", "track", {"tenant_id": tenant, "client_id": "c2", "arr": 6000, "renews_at": "2026-12-15"})
+    r = await registry.invoke("cs.renewals", "forecast", {"tenant_id": tenant})
     assert r["total_arr_up_for_renewal"] == 18000
-    r = await registry.invoke("cs.renewals", "list_upcoming", {"tenant_id": TENANT, "days": 365})
+    r = await registry.invoke("cs.renewals", "list_upcoming", {"tenant_id": tenant, "days": 365})
     assert r["count"] >= 2
 
 
