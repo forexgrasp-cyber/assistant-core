@@ -40,7 +40,9 @@ if [ -d "$SHARED/.git" ]; then
 fi
 
 echo "==> Deploying commit: $(git rev-parse --short HEAD)"
-COMPOSE_ARGS=(-p "$PROJECT" -f "$COMPOSE_FILE" --env-file .env)
+# env-file must be absolute: compose resolves relative paths against the
+# compose file's directory, not the CWD.
+COMPOSE_ARGS=(-p "$PROJECT" -f "$COMPOSE_FILE" --env-file "$REPO_DIR/.env")
 
 if docker image inspect "$IMAGE" >/dev/null 2>&1; then
   docker tag "$IMAGE" "$PREV"
