@@ -95,9 +95,9 @@ class AgencyConnectorService:
         return {"status": "connected", "connection": conn}
 
     def _client(self):
-        from shared.http_client.resilient_http_client import ResilientHttpClient
+        from shared.http_client.resilient_http_client import ResilientHTTPClient
 
-        return ResilientHttpClient()
+        return ResilientHTTPClient()
 
     async def _sync(self, p: dict[str, Any]) -> dict[str, Any]:
         """Pull from a platform and normalise into our stores."""

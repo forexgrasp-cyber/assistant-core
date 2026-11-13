@@ -248,6 +248,7 @@ from retention_analytics_advanced_processing.agency import AgencyService
 from retention_analytics_advanced_processing.agency_connectors import AgencyConnectorService
 from retention_analytics_advanced_processing.performance import PerformanceAnalytics
 from retention_analytics_advanced_processing.commerce import CommerceAnalytics
+from retention_analytics_advanced_processing.segment_push import SegmentPushService
 from retention_analytics_advanced_processing.agency_reports import (
     AgencyQAService,
     ReportDeckService,
@@ -311,6 +312,7 @@ for svc_cls in (
     AgencyQAService,
     RoleViewService,
     ReportDeckService,
+    SegmentPushService,
 ):
     svc_cls(registry).register()
 
@@ -4284,6 +4286,33 @@ async def pain_detail(
     p["workflows_registered"] = [w for w in p["workflows"] if w in wf_ids]
     p["covered"] = len(p["workflows_registered"]) > 0
     return {"status": "ok", "pain": {"id": pain_id, **p}}
+
+
+@app.get("/api/v1/segment-push/targets")
+async def segment_push_targets(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, Any]:
+    """Platforms that can receive a pushed segment (activation loop)."""
+    return await registry.invoke("connectors.segment_push", "targets", {})
+
+
+@app.post("/api/v1/segment-push")
+async def push_segment(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    body: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Push a computed segment into Klaviyo/Attentive/Omnisend/Sendlane/Postscript
+    so the platform can act on it."""
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("connectors.segment_push", "push", {"tenant_id": tenant_id, **body})
+
+
+@app.get("/api/v1/segment-push/history")
+async def segment_push_history(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, Any]:
+    tenant_id = current_tenant(request, user)
+    return await registry.invoke("connectors.segment_push", "history", {"tenant_id": tenant_id})
 
 
 # ---------------------------------------------------------------------------

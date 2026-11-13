@@ -31,15 +31,15 @@ running email/SMS/subscription programs for ecommerce brands.
 | Attribution: per-client rules, email/SMS/push side by side, share of store revenue | "Attribution" | 5 models (first/last/linear/time-decay/position) + per-campaign value saved; rules configurable per client | **Parity+** |
 | Deliverability: score + history, bounce/spam/unsub by inbox provider, offenders ranked | "Deliverability" | `analytics.performance.deliverability` — score, provider rates, biggest offender, history | **Parity** (+ shared warmup/DNS tooling) |
 | Repeat purchase 1/3/6/12m, days to 2nd order, attributed vs unattributed | "Repeat Purchase" | Cohorts + retention metrics + attribution | **Parity** |
-| RFM segments with movement + campaigns behind them + push to Klaviyo | "RFM movement" | RFM computed per customer; movement not yet tracked | **Partial** |
-| Time between orders (after campaign vs on their own) | "Time Between Orders" | Not yet | **Gap** |
-| Product paths (1st→2nd→3rd purchase) | "Product Purchase Paths" | Not yet | **Gap** |
-| Subscription LTV by product, one-time→subscriber conversion | "Subscriptions" | SaaS LTV + subscription lifecycle; per-product split not yet | **Partial** |
+| RFM segments with movement + campaigns behind them + push to Klaviyo | "RFM movement" | `analytics.commerce.rfm_movement` + `connectors.segment_push` (Klaviyo/Attentive/Omnisend/Sendlane/Postscript) | **Parity** |
+| Time between orders (after campaign vs on their own) | "Time Between Orders" | `analytics.commerce.time_between_orders` — median gap, attributed vs organic, 7 buckets | **Parity** |
+| Product paths (1st to 2nd to 3rd purchase) | "Product Purchase Paths" | `analytics.commerce.product_paths` + keyword filter | **Parity** |
+| Subscription LTV by product, one-time to subscriber | "Subscriptions" | `analytics.commerce.subscription_ltv` + `.one_time_to_subscriber` + `.product_trends` | **Parity** |
 | White-label client dashboards under agency brand | `reports.youragency.com/trendi` | `agency.share_dashboard` → tokenised `/share/{token}` page with client branding | **Parity** |
-| Branded PDF report decks | "Report decks" | Report export (json/pdf/html/csv) + saved reports | **Partial** (deck layout not designed) |
+| Branded PDF report decks | "Report decks" | `agency.deck` — 5-slide branded deck, print-to-PDF HTML with agency colours | **Parity** |
 | Scheduled Slack updates per client | "Slack updates" | `agency.schedule_digest` + Slack connector + bot commands | **Parity** |
-| Role views: account manager / leadership / copywriter | "For your whole team" | Roster (leadership) + performance (creative) + per-client (AM) | **Partial** (no role switch yet) |
-| "Ask Hiro" MCP/Claude/ChatGPT per client | Claude/ChatGPT/MCP | MCP server + REST API, but not NL per-client Q&A | **Partial** |
+| Role views: account manager / leadership / copywriter | "For your whole team" | `agency.roles` — three role views, switchable in `/ask` | **Parity** |
+| "Ask Hiro" MCP/Claude/ChatGPT per client | Claude/ChatGPT/MCP | `agency.qa` (NL per-client Q&A over live roster) + MCP server + REST API | **Parity** |
 | Action: none | — | **Campaigns, flows, auto-approach, dunning, win-back, NPS loops** | **We win** |
 | Retention automation (dunning, cancel flows, win-back, NPS) | Not offered | 37 workflows covering 28 user pains | **We win** |
 

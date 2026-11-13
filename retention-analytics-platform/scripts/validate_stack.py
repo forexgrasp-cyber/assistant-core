@@ -152,7 +152,12 @@ check("sso status", ok and "sso_enabled" in d)
 
 # --- Payments (provider-agnostic) ---
 ok, code, d, _ = req("GET", "/api/v1/payments/providers")
-check("payments providers list", ok and len(d.get("providers", [])) >= 1, str(d.get("providers")))
+# Providers are env-filtered: only those with keys in .env are offered.
+# Assert the filter is consistent with the supported catalogue.
+supported = d.get("all_supported", [])
+offered = d.get("providers", [])
+check("payment catalogue complete", ok and len(supported) >= 20, len(supported))
+check("offered providers are configured ones", set(offered).issubset(set(supported)), str(offered))
 ok, code, d, _ = req("POST", "/api/v1/webhooks/payments/stripe", {"id": f"val-{uuid.uuid4().hex[:8]}", "type": "payment_intent.succeeded"})
 check("payment webhook accepted", ok and d.get("status") == "accepted")
 
