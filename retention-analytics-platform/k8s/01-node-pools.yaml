@@ -1,0 +1,197 @@
+# EKS Node Groups for Optimized Cost
+# Applies: Spot instances for workers, Reserved for API/DB, Right-sized nodes
+
+---
+# API Node Group (Reserved Instances - Baseline)
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: retention-analytics-prod
+  region: us-east-1
+  version: "1.28"
+
+nodeGroups:
+  # --------------------------------------------------------
+  # API Baseline (Reserved Instances - 1yr No Upfront)
+  # --------------------------------------------------------
+  - name: api-baseline
+    instanceType: c6i.xlarge
+    desiredCapacity: 2
+    minSize: 2
+    maxSize: 4
+    volumeSize: 100
+    volumeType: gp3
+    volumeIOPS: 3000
+    volumeThroughput: 125
+    labels:
+      workload-type: api
+      instance-type: reserved
+      tier: baseline
+    taints:
+      - key: dedicated
+        value: api
+        effect: NoSchedule
+    iam:
+      withAddonPolicies:
+        autoScaler: true
+        cloudWatch: true
+        ebs: true
+        efs: true
+    privateNetworking: true
+    ssh:
+      allow: false
+    tags:
+      CostCenter: engineering
+      Environment: production
+      InstanceLifecycle: reserved
+    # Reserved Instance configuration (handled via AWS console/billing)
+    # 1yr No Upfront: ~40% savings vs on-demand
+
+  # --------------------------------------------------------
+  # Worker Spot Fleet (90% savings)
+  # --------------------------------------------------------
+  - name: worker-spot
+    instanceType: c6i.2xlarge
+    desiredCapacity: 8
+    minSize: 4
+    maxSize: 20
+    volumeSize: 100
+    volumeType: gp3
+    volumeIOPS: 3000
+    volumeThroughput: 125
+    labels:
+      workload-type: worker
+      instance-type: spot
+      tier: spot-fleet
+    taints:
+      - key: dedicated
+        value: worker
+        effect: NoSchedule
+    iam:
+      withAddonPolicies:
+        autoScaler: true
+        cloudWatch: true
+        ebs: true
+        efs: true
+        sqs: true
+        sns: true
+    privateNetworking: true
+    ssh:
+      allow: false
+    tags:
+      CostCenter: engineering
+      Environment: production
+      InstanceLifecycle: spot
+    # Spot instance configuration
+    spot: true
+    # Instance distribution for spot fleet
+    instancesDistribution:
+      instanceTypes:
+        - c6i.2xlarge
+        - c6a.2xlarge  # AMD alternative
+        - c5.2xlarge   # Previous gen fallback
+        - c5a.2xlarge
+      onDemandBaseCapacity: 0
+      onDemandPercentageAboveBaseCapacity: 0
+      spotAllocationStrategy: lowest-price
+    # Interruption handling
+    terminationGracePeriod: 120
+
+  # --------------------------------------------------------
+  # Worker On-Demand Baseline (Spot interruption buffer)
+  # --------------------------------------------------------
+  - name: worker-ondemand
+    instanceType: c6i.2xlarge
+    desiredCapacity: 2
+    minSize: 2
+    maxSize: 4
+    volumeSize: 100
+    volumeType: gp3
+    volumeIOPS: 3000
+    volumeThroughput: 125
+    labels:
+      workload-type: worker
+      instance-type: on-demand
+      tier: baseline
+    taints:
+      - key: dedicated
+        value: worker
+        effect: NoSchedule
+    iam:
+      withAddonPolicies:
+        autoScaler: true
+        cloudWatch: true
+        ebs: true
+        efs: true
+        sqs: true
+        sns: true
+    privateNetworking: true
+    ssh:
+      allow: false
+    tags:
+      CostCenter: engineering
+      Environment: production
+      InstanceLifecycle: on-demand
+
+  # --------------------------------------------------------
+  # Database (Right-Sized - r6g.xlarge)
+  # --------------------------------------------------------
+  - name: db-primary
+    instanceType: db.r6g.xlarge
+    desiredCapacity: 1
+    minSize: 1
+    maxSize: 1
+    volumeSize: 500
+    volumeType: gp3
+    volumeIOPS: 10000
+    volumeThroughput: 500
+    labels:
+      workload-type: database
+      role: primary
+    taints:
+      - key: dedicated
+        value: database
+        effect: NoSchedule
+    iam:
+      withAddonPolicies:
+        autoScaler: true
+        cloudWatch: true
+        ebs: true
+        rds: true
+    privateNetworking: true
+    ssh:
+      allow: false
+    tags:
+      CostCenter: engineering
+      Environment: production
+      InstanceLifecycle: reserved
+
+  # --------------------------------------------------------
+  # Cache (Redis Cluster - r6g.large)
+  # --------------------------------------------------------
+  - name: cache-cluster
+    instanceType: cache.r6g.large
+    desiredCapacity: 3
+    minSize: 3
+    maxSize: 6
+    volumeSize: 50
+    volumeType: gp3
+    labels:
+      workload-type: cache
+      cluster: redis
+    taints:
+      - key: dedicated
+        value: cache
+        effect: NoSchedule
+    iam:
+      withAddonPolicies:
+        autoScaler: true
+        cloudWatch: true
+        elasticache: true
+    privateNetworking: true
+    ssh:
+      allow: false
+    tags:
+      CostCenter: engineering
+      Environment: production
+      InstanceLifecycle: reserved

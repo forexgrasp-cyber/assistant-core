@@ -1,0 +1,302 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-spot
+  namespace: retention-analytics
+  labels:
+    app: worker
+    tier: backend
+    instance-type: spot
+spec:
+  replicas: 8
+  selector:
+    matchLabels:
+      app: worker
+      instance-type: spot
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: worker
+        tier: backend
+        instance-type: spot
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+        # Spot interruption notice
+        k8s.aws/spot-termination-notice-handler: "true"
+    spec:
+      nodeSelector:
+        workload-type: worker
+        instance-type: spot
+      tolerations:
+        - key: dedicated
+          operator: Equal
+          value: worker
+          effect: NoSchedule
+        # Allow spot instances
+        - key: "spot"
+          operator: "Exists"
+          effect: "NoSchedule"
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - worker
+                topologyKey: kubernetes.io/hostname
+      serviceAccountName: retention-worker
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      terminationGracePeriodSeconds: 120  # 2 min for spot interruption
+      containers:
+        - name: worker
+          image: retention-analytics/worker:latest
+          imagePullPolicy: Always
+          env:
+            - name: ENV
+              value: "production"
+            - name: CELERY_BROKER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: retention-secrets
+                  key: sqs-broker-url
+            - name: CELERY_RESULT_BACKEND
+              valueFrom:
+                secretKeyRef:
+                  name: retention-secrets
+                  key: redis-url
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: retention-secrets
+                  key: database-url
+            - name: SQS_QUEUE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: retention-secrets
+                  key: sqs-queue-url
+            - name: SNS_TOPIC_ARN
+              valueFrom:
+                secretKeyRef:
+                  name: retention-secrets
+                  key: sns-topic-arn
+            - name: WORKER_TYPE
+              value: "spot"
+          resources:
+            requests:
+              cpu: "4000m"
+              memory: "8Gi"
+            limits:
+              cpu: "8000m"
+              memory: "16Gi"
+          livenessProbe:
+            exec:
+              command:
+                - celery
+                - -A
+                - celery_app
+                - inspect
+                - ping
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            timeoutSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - celery
+                - -A
+                - celery_app
+                - inspect
+                - active
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # Spot interruption handler
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    echo "Spot interruption received, gracefully shutting down..."
+                    celery -A celery_app control cancel_consumer worker_queue
+                    sleep 30
+                    echo "Draining complete"
+      # Spot interruption handler sidecar
+      initContainers:
+        - name: spot-termination-handler
+          image: amazon/aws-node-termination-handler:latest
+          env:
+            - name: NODE_TERMINATION_HANDLER_WEBHOOK_URL
+              value: "http://localhost:9090/terminate"
+            - name: NODE_TERMINATION_HANDLER_DRAIN_SUPPORT
+              value: "true"
+            - name: NODE_TERMINATION_HANDLER_TERMINATION_GRACE_PERIOD
+              value: "120"
+            - name: NODE_TERMINATION_HANDLER_SQS_QUEUE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: retention-secrets
+                  key: spot-interruption-queue
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-ondemand
+  namespace: retention-analytics
+  labels:
+    app: worker
+    tier: backend
+    instance-type: on-demand
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: worker
+      instance-type: on-demand
+  template:
+    metadata:
+      labels:
+        app: worker
+        tier: backend
+        instance-type: on-demand
+    spec:
+      nodeSelector:
+        workload-type: worker
+        instance-type: on-demand
+      tolerations:
+        - key: dedicated
+          operator: Equal
+          value: worker
+          effect: NoSchedule
+      serviceAccountName: retention-worker
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: worker
+          image: retention-analytics/worker:latest
+          imagePullPolicy: Always
+          env:
+            - name: ENV
+              value: "production"
+            - name: CELERY_BROKER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: retention-secrets
+                  key: sqs-broker-url
+            - name: CELERY_RESULT_BACKEND
+              valueFrom:
+                secretKeyRef:
+                  name: retention-secrets
+                  key: redis-url
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: retention-secrets
+                  key: database-url
+            - name: SQS_QUEUE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: retention-secrets
+                  key: sqs-queue-url
+            - name: SNS_TOPIC_ARN
+              valueFrom:
+                secretKeyRef:
+                  name: retention-secrets
+                  key: sns-topic-arn
+            - name: WORKER_TYPE
+              value: "on-demand"
+          resources:
+            requests:
+              cpu: "4000m"
+              memory: "8Gi"
+            limits:
+              cpu: "8000m"
+              memory: "16Gi"
+          livenessProbe:
+            exec:
+              command:
+                - celery
+                - -A
+                - celery_app
+                - inspect
+                - ping
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            timeoutSeconds: 30
+            failureThreshold: 3
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: retention-worker
+  namespace: retention-analytics
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: worker-spot-hpa
+  namespace: retention-analytics
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker-spot
+  minReplicas: 4
+  maxReplicas: 20
+  metrics:
+    - type: External
+      external:
+        metric:
+          name: sqs_queue_messages_visible
+          selector:
+            matchLabels:
+              queue: worker-jobs
+        target:
+          type: AverageValue
+          averageValue: "100"  # 1 worker per 100 messages
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 20
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+        - type: Pods
+          value: 4
+          periodSeconds: 30
+      selectPolicy: Max

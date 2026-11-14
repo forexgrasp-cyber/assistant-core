@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: retention-analytics
+  labels:
+    name: retention-analytics
+    environment: production

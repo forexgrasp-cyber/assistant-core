@@ -1,0 +1,449 @@
+# Database Primary (Right-Sized: r6g.xlarge equivalent)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db-primary
+  namespace: retention-analytics
+  labels:
+    app: postgresql
+    role: primary
+spec:
+  serviceName: db-primary
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgresql
+      role: primary
+  template:
+    metadata:
+      labels:
+        app: postgresql
+        role: primary
+    spec:
+      nodeSelector:
+        workload-type: database
+        role: primary
+      tolerations:
+        - key: dedicated
+          operator: Equal
+          value: database
+          effect: NoSchedule
+      serviceAccountName: retention-db
+      securityContext:
+        runAsUser: 999
+        fsGroup: 999
+      containers:
+        - name: postgresql
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+              name: postgresql
+          env:
+            - name: POSTGRES_DB
+              value: "retention"
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: retention-secrets
+                  key: db-user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: retention-secrets
+                  key: db-password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          command:
+            - postgres
+            - -c
+            - max_connections=200
+            - -c
+            - shared_buffers=8GB
+            - -c
+            - effective_cache_size=24GB
+            - -c
+            - work_mem=64MB
+            - -c
+            - maintenance_work_mem=2GB
+            - -c
+            - checkpoint_completion_target=0.9
+            - -c
+            - wal_buffers=64MB
+            - -c
+            - default_statistics_target=100
+            - -c
+            - random_page_cost=1.1
+            - -c
+            - effective_io_concurrency=200
+            - -c
+            - synchronous_commit=on
+            - -c
+            - wal_level=replica
+            - -c
+            - max_wal_senders=3
+            - -c
+            - wal_keep_size=1GB
+          resources:
+            requests:
+              cpu: "2000m"
+              memory: "16Gi"
+            limits:
+              cpu: "4000m"
+              memory: "32Gi"
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - $(POSTGRES_USER)
+                - -d
+                - retention
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - $(POSTGRES_USER)
+                - -d
+                - retention
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: db-data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: db-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: gp3
+        resources:
+          requests:
+            storage: 500Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-primary
+  namespace: retention-analytics
+  labels:
+    app: postgresql
+    role: primary
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+      name: postgresql
+  selector:
+    app: postgresql
+    role: primary
+
+---
+# Database Read Replica (Auto-Scaling)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db-replica
+  namespace: retention-analytics
+  labels:
+    app: postgresql
+    role: replica
+spec:
+  serviceName: db-replica
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgresql
+      role: replica
+  template:
+    metadata:
+      labels:
+        app: postgresql
+        role: replica
+    spec:
+      nodeSelector:
+        workload-type: database
+        role: replica
+      tolerations:
+        - key: dedicated
+          operator: Equal
+          value: database
+          effect: NoSchedule
+      serviceAccountName: retention-db
+      securityContext:
+        runAsUser: 999
+        fsGroup: 999
+      containers:
+        - name: postgresql
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+              name: postgresql
+          env:
+            - name: POSTGRES_DB
+              value: "retention"
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: retention-secrets
+                  key: db-user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: retention-secrets
+                  key: db-password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: PRIMARY_HOST
+              value: "db-primary"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until pg_basebackup -h $PRIMARY_HOST -D /var/lib/postgresql/data -U $(POSTGRES_USER) -P -v -R -X stream -C -S replica_slot_1; do
+                echo "Waiting for primary..."
+                sleep 5
+              done
+              exec postgres -c hot_standby=on -c max_standby_streaming_delay=30s -c wal_receiver_status_interval=10s
+          resources:
+            requests:
+              cpu: "1000m"
+              memory: "8Gi"
+            limits:
+              cpu: "2000m"
+              memory: "16Gi"
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - $(POSTGRES_USER)
+                - -d
+                - retention
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - $(POSTGRES_USER)
+                - -d
+                - retention
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: db-data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: db-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: gp3
+        resources:
+          requests:
+            storage: 500Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-replica
+  namespace: retention-analytics
+  labels:
+    app: postgresql
+    role: replica
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+      name: postgresql
+  selector:
+    app: postgresql
+    role: replica
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: retention-db
+  namespace: retention-analytics
+
+---
+# Redis Cluster (3-node cluster mode)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-cluster
+  namespace: retention-analytics
+  labels:
+    app: redis
+    cluster: "true"
+spec:
+  serviceName: redis-cluster
+  replicas: 3
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      nodeSelector:
+        workload-type: cache
+        cluster: redis
+      tolerations:
+        - key: dedicated
+          operator: Equal
+          value: cache
+          effect: NoSchedule
+      serviceAccountName: retention-cache
+      securityContext:
+        runAsUser: 999
+        fsGroup: 999
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 6379
+              name: redis
+            - containerPort: 16379
+              name: cluster-bus
+          command:
+            - redis-server
+            - --cluster-enabled
+            - yes
+            - --cluster-config-file
+            - nodes.conf
+            - --cluster-node-timeout
+            - "5000"
+            - --appendonly
+            - yes
+            - --appendfsync
+            - everysec
+            - --maxmemory
+            - 10gb
+            - --maxmemory-policy
+            - allkeys-lru
+            - --save
+            - "900 1"
+            - --save
+            - "300 10"
+            - --save
+            - "60 10000"
+          resources:
+            requests:
+              cpu: "1000m"
+              memory: "6Gi"
+            limits:
+              cpu: "2000m"
+              memory: "13Gi"
+          livenessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: gp3
+        resources:
+          requests:
+            storage: 50Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster
+  namespace: retention-analytics
+  labels:
+    app: redis
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
+      name: redis
+  selector:
+    app: redis
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: retention-cache
+  namespace: retention-analytics
+
+---
+# Redis Cluster Initialization Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: redis-cluster-init
+  namespace: retention-analytics
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: redis-init
+          image: redis:7-alpine
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for Redis pods to be ready..."
+              for i in 0 1 2; do
+                until redis-cli -h redis-cluster-$i.redis-cluster ping; do
+                  echo "Waiting for redis-cluster-$i..."
+                  sleep 5
+                done
+              done
+              echo "Creating cluster..."
+              redis-cli --cluster create \
+                redis-cluster-0.redis-cluster:6379 \
+                redis-cluster-1.redis-cluster:6379 \
+                redis-cluster-2.redis-cluster:6379 \
+                --cluster-replicas 0 --cluster-yes
+              echo "Cluster created successfully"
+  backoffLimit: 3
