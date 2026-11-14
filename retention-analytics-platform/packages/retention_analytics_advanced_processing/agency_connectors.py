@@ -10,7 +10,6 @@ provider's REST API, and normalises into our customer/event/revenue shapes.
 
 from __future__ import annotations
 
-import json
 import os
 from datetime import UTC, datetime
 from typing import Any
@@ -39,6 +38,7 @@ PLATFORMS: dict[str, dict[str, Any]] = {
     "stripe": {"keys": ["STRIPE_SECRET_KEY"], "category": "billing", "syncs": "customers, subscriptions, invoices, payment recovery"},
     "mailchimp": {"keys": ["MAILCHIMP_API_KEY", "MAILCHIMP_SERVER_PREFIX"], "category": "email_sms", "syncs": "lists, campaigns, revenue"},
     "braze": {"keys": ["BRAZE_API_KEY"], "category": "email_sms", "syncs": "users, campaigns, messaging revenue"},
+    "hiro": {"keys": ["HIRO_API_KEY"], "category": "analytics_source", "syncs": "agency roster, client metrics, platform analytics, competitor intel"},
 }
 
 
@@ -129,6 +129,7 @@ class AgencyConnectorService:
         return {"status": "ok", "sync": record}
 
     async def _pull(self, platform: str, tenant: str, p: dict[str, Any]) -> dict[str, Any]:
+        spec = PLATFORMS[platform]
         client = self._client()
         if platform == "klaviyo":
             key = os.environ["KLAVIYO_PRIVATE_API_KEY"]
@@ -180,6 +181,9 @@ class AgencyConnectorService:
             return {"records": len(subs),
                     "detail": {"subscriptions": len(subs), "active": active,
                                "churned": len(subs) - active}}
+        if platform == "hiro":
+            return await self._pull_hiro(client, tenant, p)
+
         # generic pull for the remaining marketing platforms
         key = next((os.environ[k] for k in spec["keys"] if os.environ.get(k)), "")
         data = await client.get(f"https://api.{platform}.com/v1/profiles?limit=100",
@@ -187,6 +191,24 @@ class AgencyConnectorService:
         payload = data if isinstance(data, dict) else {}
         rows = payload.get("data") or payload.get("profiles") or payload.get("records") or []
         return {"records": len(rows), "detail": {"rows": len(rows)}}
+
+    async def _pull_hiro(self, client, tenant: str, p: dict[str, Any]) -> dict[str, Any]:
+        """Pull agency roster and client metrics from Hiro analytics."""
+        key = os.environ.get("HIRO_API_KEY", "")
+        base = os.environ.get("HIRO_API_BASE", "https://api.hiroanalytics.com/v1").rstrip("/")
+        if not key:
+            return {"records": 0, "detail": {"error": "HIRO_API_KEY not set"}}
+        headers = {"Authorization": f"Bearer {key}"}
+        # Pull roster
+        roster = await client.get(f"{base}/agency/platforms", headers=headers)
+        r_data = roster if isinstance(roster, dict) else {}
+        platforms = r_data.get("platforms", [])
+        # Pull sync history
+        syncs = await client.get(f"{base}/agency/platforms/syncs", headers=headers)
+        s_data = syncs if isinstance(syncs, dict) else {}
+        sync_list = s_data.get("syncs", [])
+        return {"records": len(platforms) + len(sync_list),
+                "detail": {"platforms": platforms, "syncs": sync_list}}
 
     async def _history(self, p: dict[str, Any]) -> dict[str, Any]:
         tenant = p.get("tenant_id", "")

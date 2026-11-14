@@ -62,6 +62,24 @@ async def run_workflow(workflow_id: str, tenant_id: str, context: dict[str, Any]
 
 
 @mcp.tool()
+async def ask_hiro(question: str, tenant_id: str | None = None) -> dict[str, Any]:
+    """Ask Hiro a natural-language question about agency roster, clients, or platform analytics."""
+    params = {"question": question}
+    if tenant_id:
+        params["tenant_id"] = tenant_id
+    return await registry.invoke("hiro.mcp", "ask", params)
+
+
+@mcp.tool()
+async def hiro_roster(tenant_id: str | None = None) -> dict[str, Any]:
+    """Get the full agency roster from Hiro analytics."""
+    params = {}
+    if tenant_id:
+        params["tenant_id"] = tenant_id
+    return await registry.invoke("hiro.mcp", "roster", params)
+
+
+@mcp.tool()
 def list_services() -> dict[str, Any]:
     """List all registered services and their actions."""
     return {

@@ -99,6 +99,7 @@ class SlackAlertService:
         reg = self.registry.register("integrations.slack", version="1.0.0", metadata={"domain": "integrations", "type": "comms"})
         reg.actions["send"] = self._send
         reg.actions["list"] = self._list
+        reg.actions["bot_command"] = self._bot_command
 
     async def _send(self, p: dict[str, Any]) -> dict[str, Any]:
         msg = {
@@ -128,6 +129,43 @@ class SlackAlertService:
             return {"status": "ok", "messages": [m for m in data if m.get("tenant_id") == p.get("tenant_id", "")]}
         except Exception:
             return {"status": "ok", "messages": []}
+
+    async def _bot_command(self, p: dict[str, Any]) -> dict[str, Any]:
+        """Handle Slack slash commands: /roster, /digest, /act."""
+        command = p.get("command", "").lstrip("/")
+        tenant_id = p.get("tenant_id", "")
+        user_id = p.get("user_id", "")
+        args = (p.get("text") or "").strip()
+
+        if command == "roster":
+            r = await self.registry.invoke("agency", "roster", {"tenant_id": tenant_id})
+            behind = r["summary"]["behind_goal"]
+            needs = r["summary"]["needs_attention"]
+            revenue = r["summary"]["total_revenue_mtd"]
+            blocks = [{
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": f"*Agency Roster* — {r['count']} clients\n• Behind goal: {behind}\n• Needs attention: {needs}\n• Revenue MTD: ${revenue:,.0f}"}
+            }]
+            return {"response_type": "in_channel", "blocks": blocks}
+
+        if command == "digest":
+            if args == "send":
+                r = await self.registry.invoke("agency", "run_due_digests", {"tenant_id": tenant_id})
+                return {"response_type": "ephemeral", "text": f"Digests sent: {r['sent']}, skipped: {r['skipped']}"}
+            elif args.startswith("client "):
+                client_id = args.split(" ", 1)[1]
+                r = await self.registry.invoke("agency", "send_digest", {"tenant_id": tenant_id, "client_id": client_id})
+                return {"response_type": "ephemeral", "text": f"Digest sent to {r.get('channel')}: {r.get('status')}"}
+            else:
+                return {"response_type": "ephemeral", "text": "Usage: `/digest send` or `/digest client <client_id>`"}
+
+        if command == "act":
+            r = await self.registry.invoke("agency", "auto_act", {"tenant_id": tenant_id})
+            acted = r.get("acted", 0)
+            details = ", ".join(f"{c['client_id']}: {c['status']}" for c in r.get("clients", [])[:3])
+            return {"response_type": "in_channel", "text": f"Auto-act completed: {acted} clients acted on. {details}"}
+
+        return {"response_type": "ephemeral", "text": f"Unknown command: /{command}. Try /roster, /digest, /act"}
 
 
 class WebhookManagementService:
@@ -197,4 +235,67 @@ class WebhookManagementService:
         self._path.write_text(json.dumps(data, indent=2, default=str))
 
 
-__all__ = ["IntegrationRegistryService", "SlackAlertService", "WebhookManagementService"]
+class HiroWebhookService:
+    """Receive webhooks from Hiro Analytics for real-time roster/sync updates.
+
+    Endpoint: POST /api/v1/webhooks/hiro
+    Events: platform.updated, sync.completed, client.metric.changed
+    """
+
+    def __init__(self, registry: ServiceRegistry) -> None:
+        self.registry = registry
+        self._path = data_root() / "hiro_webhooks.json"
+
+    def register(self) -> None:
+        reg = self.registry.register("integrations.hiro.webhook", version="1.0.0", metadata={"domain": "integrations", "type": "webhook"})
+        reg.actions["receive"] = self._receive
+        reg.actions["list"] = self._list
+
+    async def _receive(self, p: dict[str, Any]) -> dict[str, Any]:
+        """Process incoming Hiro webhook."""
+        event_type = p.get("event_type", "")
+        payload = p.get("payload", {})
+        tenant_id = p.get("tenant_id", "")
+
+        # Persist for audit
+        event = {
+            "event_id": f"hw-{uuid.uuid4().hex[:12]}",
+            "event_type": event_type,
+            "tenant_id": tenant_id,
+            "payload": payload,
+            "received_at": datetime.now(UTC).isoformat(),
+        }
+        self._persist(event)
+
+        # Trigger internal actions based on event
+        if event_type == "platform.updated":
+            await self.registry.invoke("connectors.agency", "sync", {"platform": "hiro", "tenant_id": tenant_id})
+        elif event_type == "sync.completed":
+            await self.registry.invoke("agency", "auto_act", {"tenant_id": tenant_id})
+        elif event_type == "client.metric.changed":
+            client_id = payload.get("client_id")
+            if client_id:
+                await self.registry.invoke("agency", "send_digest", {"tenant_id": tenant_id, "client_id": client_id})
+
+        return {"status": "ok", "event_id": event["event_id"], "processed": True}
+
+    async def _list(self, p: dict[str, Any]) -> dict[str, Any]:
+        tenant = p.get("tenant_id", "")
+        events = [e for e in self._load_all() if not tenant or e.get("tenant_id") == tenant]
+        events.sort(key=lambda x: x.get("received_at", ""), reverse=True)
+        return {"status": "ok", "events": events, "count": len(events)}
+
+    def _load_all(self) -> list[dict[str, Any]]:
+        if not self._path.exists():
+            return []
+        try:
+            return json.loads(self._path.read_text())
+        except Exception:
+            return []
+
+    def _persist(self, e: dict[str, Any]) -> None:
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._path.write_text(json.dumps(self._load_all() + [e], indent=2, default=str))
+
+
+__all__ = ["IntegrationRegistryService", "SlackAlertService", "WebhookManagementService", "HiroWebhookService"]

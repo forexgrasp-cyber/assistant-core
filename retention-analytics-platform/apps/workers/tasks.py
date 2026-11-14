@@ -74,4 +74,12 @@ def scan_service_due_task(tenant_id: str, within_days: int = 7):
     )
 
 
-__all__ = ["run_workflow_task", "ingest_event_task", "generate_report_task", "run_scheduled_reports_task", "scan_service_due_task"]
+@celery_app.task(name="agency.run_due_digests")
+def run_due_digests_task(tenant_id: str):
+    """Cron tick: run all due scheduled agency digests and send to Slack (Hiro parity)."""
+    from apps.api.main import registry
+
+    return _run_async(registry.invoke("agency", "run_due_digests", {"tenant_id": tenant_id}))
+
+
+__all__ = ["run_workflow_task", "ingest_event_task", "generate_report_task", "run_scheduled_reports_task", "scan_service_due_task", "run_due_digests_task"]

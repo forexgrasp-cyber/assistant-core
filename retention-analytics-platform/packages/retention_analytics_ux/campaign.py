@@ -78,6 +78,7 @@ class CampaignService:
         reg.actions["results"] = self._results
         reg.actions["goals"] = self._goals
         reg.actions["evaluate_segment"] = self._eval_segment
+        reg.actions["ensure_defaults"] = self._ensure_defaults
 
     async def _goals(self, p: dict[str, Any]) -> dict[str, Any]:
         return {"status": "ok", "goals": CAMPAIGN_GOALS}
@@ -256,6 +257,22 @@ class CampaignService:
             elif isinstance(b, (int, float)) and isinstance(a, (int, float)):
                 deltas[k] = round(a - b, 4)
         return deltas
+
+    async def _ensure_defaults(self, p: dict[str, Any]) -> dict[str, Any]:
+        """Create default win-back campaigns for a tenant if they don't exist."""
+        tenant = p.get("tenant_id", "")
+        created = []
+        for goal, name, flows in [
+            ("reduce_churn", "Win-back: Churn Prevention", ["churn-prevention", "health-score-alert"]),
+            ("reduce_churn", "Win-back: Reactivation", ["win-back", "reactivation"]),
+            ("cancel_save", "Save Cancellations", ["cancel-flow", "downgrade-save"]),
+        ]:
+            existing = [c for c in self._load_all() if c.get("tenant_id") == tenant and c.get("goal") == goal and c.get("name") == name]
+            if existing:
+                continue
+            camp = await self._create({"tenant_id": tenant, "name": name, "goal": goal, "flows": flows, "status": "active"})
+            created.append(camp.get("campaign", camp))
+        return {"status": "ok", "created": len(created), "campaigns": created}
 
     def _load_all(self) -> list[dict[str, Any]]:
         if not self._path.exists():

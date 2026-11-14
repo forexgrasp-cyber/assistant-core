@@ -147,6 +147,7 @@ from retention_analytics_integrations.service import (
     IntegrationRegistryService,
     SlackAlertService,
     WebhookManagementService,
+    HiroWebhookService,
 )
 from retention_analytics_compliance.service import AuditExportService, PrivacyService, SSOService
 
@@ -163,6 +164,7 @@ for svc_cls in (
     IntegrationRegistryService,
     SlackAlertService,
     WebhookManagementService,
+    HiroWebhookService,
     PrivacyService,
     AuditExportService,
     SSOService,
@@ -248,6 +250,7 @@ from retention_analytics_advanced_processing.agency import AgencyService
 from retention_analytics_advanced_processing.agency_connectors import AgencyConnectorService
 from retention_analytics_advanced_processing.performance import PerformanceAnalytics
 from retention_analytics_advanced_processing.commerce import CommerceAnalytics
+from retention_analytics_integrations.hiro_mcp import HiroMCPService
 from retention_analytics_advanced_processing.segment_push import SegmentPushService
 from retention_analytics_advanced_processing.agency_reports import (
     AgencyQAService,
@@ -309,6 +312,7 @@ for svc_cls in (
     AgencyConnectorService,
     PerformanceAnalytics,
     CommerceAnalytics,
+    HiroMCPService,
     AgencyQAService,
     RoleViewService,
     ReportDeckService,
@@ -641,6 +645,52 @@ async def metrics(request: Request) -> Response:
     if wants_html(request):
         return metrics_to_html(raw)
     return Response(content=raw, media_type="text/plain; version=0.0.4")
+
+
+@app.get("/api/v1/agency/metrics")
+async def agency_metrics(
+    request: Request,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> Any:
+    """Agency + Hiro integration metrics dashboard."""
+    tenant_id = current_tenant(request, user)
+    # Agency roster summary
+    roster = await registry.invoke("agency", "roster", {"tenant_id": tenant_id})
+    # Hiro sync status
+    hiro_syncs = await registry.invoke("connectors.agency", "sync", {"platform": "hiro", "tenant_id": tenant_id})
+    # Digest status
+    digests = await registry.invoke("agency", "list_digests", {})
+    # Auto-act history
+    actions = await registry.invoke("agency", "auto_act", {"tenant_id": tenant_id})
+
+    data = {
+        "status": "ok",
+        "tenant_id": tenant_id,
+        "roster": {
+            "clients": roster.get("count", 0),
+            "revenue_mtd": roster.get("summary", {}).get("total_revenue_mtd", 0),
+            "behind_goal": roster.get("summary", {}).get("behind_goal", 0),
+            "needs_attention": roster.get("summary", {}).get("needs_attention", 0),
+            "churn_risk": roster.get("summary", {}).get("total_churn_risk", 0),
+            "mrr_at_risk": roster.get("summary", {}).get("total_at_risk_mrr", 0),
+        },
+        "hiro": {
+            "sync_status": hiro_syncs.get("status"),
+            "last_sync": hiro_syncs.get("sync", {}).get("synced_at"),
+            "records_synced": hiro_syncs.get("sync", {}).get("records"),
+        },
+        "digests": {
+            "scheduled": len(digests.get("digests", [])),
+            "active": sum(1 for d in digests.get("digests", []) if d.get("active")),
+            "last_run": max((d.get("last_sent_at") for d in digests.get("digests", []) if d.get("last_sent_at")), default=None),
+        },
+        "auto_act": {
+            "last_run": actions.get("acted") is not None and "now",
+            "clients_acted": actions.get("acted", 0),
+            "details": actions.get("clients", []),
+        },
+    }
+    return maybe_html(request, data, "Agency Metrics")
 
 
 # ---------------------------------------------------------------------------

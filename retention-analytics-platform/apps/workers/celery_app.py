@@ -36,6 +36,12 @@ celery_app.conf.update(
             "schedule": 86400.0,
             "args": ("00000000-0000-0000-0000-000000000001", 7),
         },
+        # Run due agency Slack digests every hour (Hiro parity)
+        "agency-digests-hourly": {
+            "task": "agency.run_due_digests",
+            "schedule": 3600.0,
+            "args": ("00000000-0000-0000-0000-000000000001",),
+        },
     },
 )
 

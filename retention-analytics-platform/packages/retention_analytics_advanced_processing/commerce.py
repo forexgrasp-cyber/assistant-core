@@ -53,6 +53,7 @@ class CommerceAnalytics:
         reg.actions["one_time_to_subscriber"] = self._one_time_to_sub
         reg.actions["product_trends"] = self._product_trends
         reg.actions["rfm_movement"] = self._rfm_movement
+        reg.actions["revenue_summary"] = self._revenue_summary
 
     # ------------------------------------------------------------ data in
     async def _record_order(self, p: dict[str, Any]) -> dict[str, Any]:
@@ -90,6 +91,58 @@ class CommerceAnalytics:
                 rows.append(rec)
         rows.sort(key=lambda x: str(x.get("placed_at", "")))
         return rows
+
+    # ------------------------------------------------- 0. revenue summary
+    async def _revenue_summary(self, p: dict[str, Any]) -> dict[str, Any]:
+        """Revenue MTD / last 30d / all time + attributed (campaign/flow) vs organic.
+
+        Real numbers from the persisted orders — no samples, no defaults
+        beyond a genuine zero when there are no orders.
+        """
+        tenant = p.get("tenant_id", "")
+        orders = await self._orders(tenant)
+        now = datetime.now(UTC)
+        mtd_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        d30_start = now - timedelta(days=30)
+
+        def _at(o: dict[str, Any]) -> datetime | None:
+            try:
+                return datetime.fromisoformat(str(o.get("placed_at", "")).replace("Z", "+00:00"))
+            except Exception:
+                return None
+
+        total = 0.0
+        mtd = 0.0
+        d30 = 0.0
+        attributed = 0.0
+        organic = 0.0
+        sub_revenue = 0.0
+        one_time_revenue = 0.0
+        for o in orders:
+            amt = float(o.get("amount", 0) or 0)
+            total += amt
+            if o.get("campaign_id") or o.get("flow_id"):
+                attributed += amt
+            else:
+                organic += amt
+            if bool(o.get("is_subscription")):
+                sub_revenue += amt
+            else:
+                one_time_revenue += amt
+            ts = _at(o)
+            if ts:
+                if ts >= mtd_start:
+                    mtd += amt
+                if ts >= d30_start:
+                    d30 += amt
+        return {"status": "ok", "tenant_id": tenant, "orders": len(orders),
+                "revenue_total": round(total, 2), "revenue_mtd": round(mtd, 2),
+                "revenue_last_30d": round(d30, 2),
+                "attributed_revenue": round(attributed, 2),
+                "organic_revenue": round(organic, 2),
+                "subscription_revenue": round(sub_revenue, 2),
+                "one_time_revenue": round(one_time_revenue, 2),
+                "attributed_share_pct": round((attributed / total * 100), 1) if total else 0.0}
 
     # ------------------------------------------- 1. time between orders
     async def _time_between(self, p: dict[str, Any]) -> dict[str, Any]:

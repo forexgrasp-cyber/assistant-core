@@ -93,3 +93,27 @@ full billing lifecycle, and universal (non-ecommerce) applicability.
 `scripts/verify_platform.py` (51 checks) + `scripts/verify_hiro_gaps.py` (22 checks) +
 `tests/test_agency_performance.py` (8) + `tests/test_hiro_gaps_closed.py` (7) — all passing.
 Live: 23/23 portal pages render; **22/22 Hiro-parity checks pass**.
+
+## Using Hiro as a data source (2026-11-14)
+
+Hiro is now integrated as an **analytics source** — we pull their agency roster, platform
+catalog, and sync history into our platform via the `hiro` connector in `connectors.agency`.
+
+### Architecture
+- **shared.integrations.hiro_client.HiroClient** — fail-closed on `HIRO_API_KEY`, supports
+  `dry_run`, injectable HTTP client, dual REST + MCP endpoints.
+  - REST: `GET /api/v1/agency/platforms`, `POST /api/v1/agency/platforms/{platform}/sync`,
+    `GET /api/v1/agency/platforms/syncs`
+  - MCP: `tools/call` for `ask_hiro` (natural-language Q&A) and `hiro_roster`
+- **connectors.agency** — `PLATFORMS["hiro"]` (category `analytics_source`, keys `HIRO_API_KEY`).
+  Pulls roster + sync history via `_pull_hiro`, normalises into our sync records.
+- **agency** — `_client_metrics` calls `analytics.commerce.revenue_summary` for real MTD revenue
+  (no samples, no defaults). `_auto_act` fires CS alerts + Slack alerts + optional win-back
+  campaigns for clients flagged `churn_risk`, `behind_goal`, `deliverability`.
+- **MCP server** — `ask_hiro` and `hiro_roster` tools exposed for AI assistants.
+
+### Verification
+- `tests/test_hiro_integration.py` — 10 tests (HiroClient, connector, revenue_summary, roster wiring, MCP tools)
+- `scripts/verify_hiro_integration.py` — live endpoint checks (REST + MCP)
+- `scripts/watch_hiro_site.py` — catalog drift detection (fetched 12 platforms, 22/22 parity holds)
+- `docs/HIRO_SITE_SNAPSHOT.json` — saved site snapshot
