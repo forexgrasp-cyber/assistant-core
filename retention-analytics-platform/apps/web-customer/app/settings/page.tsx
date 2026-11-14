@@ -188,6 +188,45 @@ export default function Settings() {
         <button onClick={() => save({ branding: settings.branding, default_channel: settings.default_channel, data_retention_days: settings.data_retention_days })} className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700">Save workspace</button>
       </div>
 
+      {/* Attribution rules */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+        <h3 className="font-semibold text-gray-900 mb-1">Attribution rules</h3>
+        <p className="text-xs text-gray-400 mb-4">Configure how revenue is credited across channels and campaigns. Applied to all clients unless overridden.</p>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div>
+            <label className="text-xs text-gray-500">Default attribution model</label>
+            <select value={settings.attribution?.default_model ?? "linear"} onChange={(e) => set("attribution.default_model", e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm mt-1">
+              <option value="first_touch">First touch</option>
+              <option value="last_touch">Last touch</option>
+              <option value="linear">Linear (equal weight)</option>
+              <option value="time_decay">Time decay (recent weighted)</option>
+              <option value="position_based">Position-based (40/20/40)</option>
+            </select>
+            <p className="text-[10px] text-gray-400 mt-1">How credit is distributed across touchpoints</p>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">Attribution window (days)</label>
+            <input type="number" value={settings.attribution?.window_days ?? 30} onChange={(e) => set("attribution.window_days", parseInt(e.target.value))} min="1" max="365" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm mt-1" />
+            <p className="text-[10px] text-gray-400 mt-1">Touchpoints older than this are ignored</p>
+          </div>
+        </div>
+        <div className="space-y-2 mb-4">
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" checked={settings.attribution?.include_sms ?? true} onChange={(e) => set("attribution.include_sms", e.target.checked)} className="rounded" />
+            Include SMS in attribution
+          </label>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" checked={settings.attribution?.include_push ?? true} onChange={(e) => set("attribution.include_push", e.target.checked)} className="rounded" />
+            Include push in attribution
+          </label>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" checked={settings.attribution?.include_ads ?? false} onChange={(e) => set("attribution.include_ads", e.target.checked)} className="rounded" />
+            Include ad/referral in attribution
+          </label>
+        </div>
+        <button onClick={() => save({ attribution: settings.attribution })} className="px-4 py-2 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700">Save attribution rules</button>
+      </div>
+
       {/* API keys */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
         <h3 className="font-semibold text-gray-900 mb-1">API keys</h3>

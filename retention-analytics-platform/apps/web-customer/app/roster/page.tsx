@@ -113,7 +113,21 @@ export default function RosterPage() {
                   <td className="py-2"><span className={`text-[10px] px-1.5 py-0.5 rounded ${statusColor(c.status)}`}>{c.status_label}</span></td>
                   <td className="py-2">${(c.revenue_mtd ?? 0).toLocaleString()}</td>
                   <td className="py-2">{c.goal?.monthly_target ? "$" + c.goal.monthly_target.toLocaleString() : "-"}</td>
-                  <td className="py-2 text-xs">{c.goal_pct != null ? `${c.goal_pct}% of goal` : "-"} <span className="text-gray-400">({c.pacing_pct}% through month)</span></td>
+                  <td className="py-2 text-xs">
+                    {c.goal_pct != null ? (
+                      <>
+                        <div className="flex items-center gap-2 mb-1">
+                          <PaceBar goalPct={c.goal_pct} pacingPct={c.pacing_pct} />
+                          <span className={c.goal_pct >= c.pacing_pct ? "text-green-600" : "text-red-600"} font-medium text-xs>
+                            {c.goal_pct}% of goal
+                          </span>
+                        </div>
+                        <span className="text-gray-400">{c.pacing_pct}% through month</span>
+                      </>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
                   <td className="py-2 text-xs">{c.churn_risk ?? 0}</td>
                   <td className="py-2 text-xs">{c.open_alerts ?? 0}</td>
                   <td className="py-2 text-xs text-gray-400">{(c.platforms ?? []).join(", ") || "-"}</td>
@@ -156,6 +170,18 @@ export default function RosterPage() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function PaceBar({ goalPct, pacingPct }: { goalPct: number; pacingPct: number }) {
+  const onTrack = goalPct >= pacingPct;
+  const fillPct = Math.min(100, Math.max(0, (goalPct / (pacingPct || 1)) * 100));
+  return (
+    <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden relative" title={`Pacing: ${pacingPct}%, Goal achievement: ${goalPct}%`}>
+      <div className="h-full bg-gray-300" style={{ width: `${pacingPct}%` }} />
+      <div className={`h-full absolute top-0 left-0 rounded-full ${onTrack ? "bg-green-500" : "bg-red-500"}`} style={{ width: `${fillPct}%` }} />
+      <div className="absolute top-0 right-0 h-full w-px bg-gray-400" style={{ left: `${pacingPct}%` }} />
     </div>
   );
 }

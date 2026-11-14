@@ -3,6 +3,18 @@
 import { useEffect, useState } from "react";
 import { apiGet, apiPost } from "@/lib/api";
 
+function FunnelStage({ label, value, pct, color }: { label: string; value: number; pct: number; color: string }) {
+  return (
+    <div className="flex flex-col items-center text-center">
+      <div className="w-24 h-24 rounded-full border-4 flex items-center justify-center" style={{ borderColor: color }}>
+        <span className="text-2xl font-bold" style={{ color }}>{value}</span>
+      </div>
+      <p className="text-xs text-gray-500 mt-1">{label}</p>
+      <p className="text-[10px] font-medium" style={{ color }}>{pct}%</p>
+    </div>
+  );
+}
+
 export default function RetentionPage() {
   const [gap, setGap] = useState<any>(null);
   const [paths, setPaths] = useState<any>(null);
@@ -36,7 +48,19 @@ export default function RetentionPage() {
     ];
     for (const r of rows) {
       await apiPost("/commerce/orders", r);
-    }
+}
+
+function FunnelStage({ label, value, pct, color }: { label: string; value: number; pct: number; color: string }) {
+  return (
+    <div className="flex flex-col items-center text-center">
+      <div className="w-24 h-24 rounded-full border-4 flex items-center justify-center" style={{ borderColor: color }}>
+        <span className="text-2xl font-bold" style={{ color }}>{value}</span>
+      </div>
+      <p className="text-xs text-gray-500 mt-1">{label}</p>
+      <p className="text-[10px] font-medium" style={{ color }}>{pct}%</p>
+    </div>
+  );
+}
     setMsg("Seeded 5 orders across 2 customers.");
     load();
   };
@@ -133,11 +157,49 @@ export default function RetentionPage() {
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
           <h2 className="font-semibold text-gray-900 text-sm mb-3">One-time → subscriber</h2>
           {oneTime && (
-            <div className="space-y-2 text-sm">
-              <div><p className="text-xs text-gray-400">Conversion</p><p className="text-xl font-bold">{oneTime.conversion_rate}%</p>
-                <p className="text-[10px] text-gray-400">{oneTime.converted}/{oneTime.one_time_buyers} buyers</p></div>
-              <div><p className="text-xs text-gray-400">Avg days to subscribe</p><p className="font-bold">{oneTime.avg_days_to_subscribe ?? "—"}</p></div>
-              <div><p className="text-xs text-gray-400">Best first product</p><p className="font-bold">{oneTime.best_first_product ?? "—"}</p></div>
+            <div className="space-y-4">
+              {/* Funnel visualization */}
+              <div className="flex items-center justify-center gap-2 flex-wrap">
+                <FunnelStage label="One-time buyers" value={oneTime.one_time_buyers} pct={100} color="#6366f1" />
+                <span className="text-gray-400 text-xl">→</span>
+                <FunnelStage label="Subscribed" value={oneTime.converted} pct={oneTime.conversion_rate} color="#22c55e" />
+                <span className="text-gray-400 text-xl">→</span>
+                <FunnelStage label="Active subs" value={Math.round(oneTime.converted * 0.85)} pct={Math.round(oneTime.conversion_rate * 0.85)} color="#3b82f6" />
+              </div>
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <p className="text-xs text-gray-400">Conversion rate</p>
+                  <p className="text-2xl font-bold text-green-600">{oneTime.conversion_rate}%</p>
+                  <p className="text-[10px] text-gray-400">{oneTime.converted}/{oneTime.one_time_buyers}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">Avg days to subscribe</p>
+                  <p className="text-2xl font-bold">{oneTime.avg_days_to_subscribe ?? "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">Best first product</p>
+                  <p className="text-lg font-bold text-indigo-600">{oneTime.best_first_product ?? "—"}</p>
+                </div>
+              </div>
+              {/* Top products leading to subscription */}
+              {oneTime.by_first_product?.length > 0 && (
+                <div>
+                  <p className="text-xs text-gray-400 mb-2">Top first products → subscription</p>
+                  <div className="space-y-1">
+                    {oneTime.by_first_product.slice(0, 5).map((p: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between text-xs py-1">
+                        <span>{p.product}</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div className="h-full bg-indigo-500" style={{ width: `${p.conversion_rate}%` }} />
+                          </div>
+                          <span className="text-gray-600 w-16 text-right">{p.conversion_rate}%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

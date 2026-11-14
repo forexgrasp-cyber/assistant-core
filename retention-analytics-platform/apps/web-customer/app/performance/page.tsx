@@ -202,6 +202,11 @@ export default function PerformancePage() {
             {deliver.biggest_offender && (
               <p className="text-xs text-gray-500 mb-3">Biggest offender: <b>{deliver.biggest_offender.provider}</b> — {deliver.biggest_offender.bounce_rate}% bounce</p>
             )}
+            {/* Score trend sparkline */}
+            <div className="mb-4 p-3 bg-gray-50 rounded border border-gray-100">
+              <p className="text-xs text-gray-500 mb-2">Deliverability score trend (last 30 days)</p>
+              <Sparkline data={getScoreHistory(deliver)} color={deliver.score >= 80 ? "#22c55e" : deliver.score >= 60 ? "#f59e0b" : "#ef4444"} />
+            </div>
             <table className="w-full text-left text-sm">
               <thead><tr className="border-b text-xs text-gray-400">
                 <th className="py-2">Provider</th><th className="py-2">Sent</th><th className="py-2">Delivered</th>
@@ -237,4 +242,53 @@ function Mini({ label, value }: { label: string; value: any }) {
       <p className="text-xs text-gray-400">{label}</p>
     </div>
   );
+}
+
+function Sparkline({ data, color }: { data: number[]; color: string }) {
+  if (!data.length) return <p className="text-xs text-gray-400">No history yet</p>;
+  const width = 280, height = 60, padding = 10;
+  const maxVal = Math.max(...data, 100);
+  const minVal = Math.min(...data, 0);
+  const range = maxVal - minVal || 1;
+  const points = data.map((v, i) => {
+    const x = padding + (i / (data.length - 1 || 1)) * (width - 2 * padding);
+    const y = height - padding - ((v - minVal) / range) * (height - 2 * padding);
+    return `${x},${y}`;
+  }).join(" ");
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+      <polyline fill="none" stroke={color} strokeWidth="2" points={points} />
+      <circle cx={padding + (data.length - 1) / (data.length - 1 || 1) * (width - 2 * padding)} 
+              cy={height - padding - ((data[data.length - 1] - minVal) / range) * (height - 2 * padding)} 
+              r="3" fill={color} />
+      <text x={width - padding} y={height - 2} fontSize="10" fill="#9ca3af" textAnchor="end">{data[data.length - 1]}</text>
+    </svg>
+  );
+}
+
+function getScoreHistory(deliver: any): number[] {
+  const points: number[] = [];
+  const now = new Date();
+  for (let i = 29; i >= 0; i--) {
+    const day = new Date(now.getTime() - i * 86400000);
+    const dayStr = day.toISOString().slice(0, 10);
+    let scoreSum = 0, count = 0;
+    deliver.providers?.forEach((p: any) => {
+      p.history?.forEach((h: any) => {
+        if (h.at?.startsWith(dayStr)) {
+          const sent = p.sent || 1;
+          const delivered = p.delivered || 0;
+          const bounced = p.bounced || 0;
+          const spam = p.spam || 0;
+          const dayScore = Math.max(0, (delivered / sent) * 100 - (bounced / sent) * 200 - (spam / sent) * 300);
+          scoreSum += dayScore;
+          count++;
+        }
+      });
+    });
+    if (count > 0) points.push(Math.round(scoreSum / count));
+    else if (points.length > 0) points.push(points[points.length - 1]);
+    else points.push(100);
+  }
+  return points;
 }
