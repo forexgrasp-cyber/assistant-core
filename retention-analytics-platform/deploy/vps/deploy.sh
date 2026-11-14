@@ -64,7 +64,9 @@ rollback() {
 }
 
 echo "==> Build"
-if ! docker compose "${COMPOSE_ARGS[@]}" build --build-arg PROJECT=retention-analytics-platform; then
+# No --build-arg PROJECT here: the compose file owns the project path (the
+# PROJECT_PATH env var, defaulting to the flat layout).
+if ! docker compose "${COMPOSE_ARGS[@]}" build; then
   rollback "build failed"; exit 1
 fi
 

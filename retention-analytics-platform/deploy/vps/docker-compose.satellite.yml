@@ -3,14 +3,18 @@
 #   docker compose -f deploy/vps/docker-compose.satellite.yml up -d --build
 # Required .env keys: TRAEFIK_HOST, POSTGRES_PASSWORD, REDIS_PASSWORD,
 # JWT_SECRET, WEBHOOK_SECRET, PII_ENCRYPTION_KEY
+#
+# PROJECT_PATH is the project directory relative to the build CONTEXT. It
+# defaults to the flat layout (project at the clone root); a clone that keeps
+# the project one level down (a monorepo mirror) sets it in .env.
 services:
   api:
     image: retention-analytics-platform:latest
     build:
       context: /opt/sites
-      dockerfile: retention-analytics-platform/infra/docker/Dockerfile.api
+      dockerfile: ${PROJECT_PATH:-retention-analytics-platform}/infra/docker/Dockerfile.api
       args:
-        PROJECT: retention-analytics-platform
+        PROJECT: ${PROJECT_PATH:-retention-analytics-platform}
     restart: unless-stopped
     env_file: [.env]
     environment:
@@ -20,6 +24,7 @@ services:
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/1
       CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD}@redis:6379/2
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
+      APP_SECRET_KEY: ${JWT_SECRET:?JWT_SECRET required}
       WEBHOOK_SECRET: ${WEBHOOK_SECRET:?WEBHOOK_SECRET required}
       PII_ENCRYPTION_KEY: ${PII_ENCRYPTION_KEY:?PII_ENCRYPTION_KEY required}
       DATA_DIR: /data
@@ -51,6 +56,7 @@ services:
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/1
       CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD}@redis:6379/2
       JWT_SECRET: ${JWT_SECRET}
+      APP_SECRET_KEY: ${JWT_SECRET}
       DATA_DIR: /data
     volumes:
       - retention_data:/data
@@ -59,6 +65,14 @@ services:
         condition: service_healthy
     networks: [internal]
     command: ["celery", "-A", "apps.workers.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
+    # The image HEALTHCHECK probes uvicorn :47319 - celery serves no HTTP, so
+    # worker liveness = broker ping answered by THIS node.
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A apps.workers.celery_app inspect ping -d celery@$$(hostname) -t 5 2>/dev/null | grep -q pong"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   beat:
     image: retention-analytics-platform:latest
@@ -69,6 +83,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-retention_analytics}
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/1
       CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD}@redis:6379/2
+      JWT_SECRET: ${JWT_SECRET}
+      APP_SECRET_KEY: ${JWT_SECRET}
       DATA_DIR: /data
     volumes:
       - retention_data:/data
@@ -77,6 +93,14 @@ services:
         condition: service_healthy
     networks: [internal]
     command: ["celery", "-A", "apps.workers.celery_app", "beat", "--loglevel=info"]
+    # Beat answers no inspect ping (workers only) - liveness = PID 1 is the
+    # beat process.
+    healthcheck:
+      test: ["CMD-SHELL", "tr '\\0' ' ' < /proc/1/cmdline | grep -q 'celery -A apps.workers.celery_app beat'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   postgres:
     image: postgres:16-alpine
