@@ -98,8 +98,8 @@ export default function Landing() {
         </div>
 
         {/* animated retention chart */}
-        <div className="chart-card anim-tilt-scene">
-          <div className="anim-tilt" data-tilt-max="4">
+        <div className="chart-card-scene">
+          <div className="">
             <svg viewBox="0 0 640 220" width="100%" aria-label="Retention rising, churn falling">
               <defs>
                 <linearGradient id="retFill" x1="0" y1="0" x2="0" y2="1">
@@ -110,10 +110,10 @@ export default function Landing() {
               {[40, 80, 120, 160].map((y) => (
                 <line key={y} x1="20" y1={y} x2="620" y2={y} stroke="#232a52" strokeWidth="1" />
               ))}
-              <path className="anim-svg-draw" d="M20,190 C160,185 260,120 380,80 C480,50 560,35 620,30"
+              <path className="-draw" d="M20,190 C160,185 260,120 380,80 C480,50 560,35 620,30"
                 fill="none" stroke="#34d399" strokeWidth="4" strokeLinecap="round" />
               <path d="M20,190 C160,185 260,120 380,80 C480,50 560,35 620,30 L620,210 L20,210 Z" fill="url(#retFill)" opacity=".6" />
-              <path className="anim-svg-draw" d="M20,60 C160,70 300,120 420,160 C500,185 570,195 620,198"
+              <path className="-draw" d="M20,60 C160,70 300,120 420,160 C500,185 570,195 620,198"
                 fill="none" stroke="#fb7185" strokeWidth="3" strokeDasharray="7 6" strokeLinecap="round" />
               <circle cx="620" cy="30" r="6" fill="#34d399" />
               <circle cx="620" cy="198" r="5" fill="#fb7185" />
@@ -126,7 +126,7 @@ export default function Landing() {
         <div className="flex gap-8 mt-6 flex-wrap">
           {STATS.map((s) => (
             <div className="stat" key={s.label}>
-              <div className="num anim-count" data-count={s.value} data-suffix={s.suffix}>0</div>
+              <div className="num" data-count={s.value} data-suffix={s.suffix}>0</div>
               <div className="lbl">{s.label}</div>
             </div>
           ))}
@@ -134,8 +134,8 @@ export default function Landing() {
       </section>
 
       {/* logo marquee */}
-      <div className="logo-marquee anim-marquee" aria-hidden="true">
-        <div className="anim-marquee-track" style={{ ["--marquee-duration" as string]: "28s" }}>
+      <div className="logo-marquee" aria-hidden="true">
+        <div className="-track" style={{ ["--marquee-duration" as string]: "28s" }}>
           {LOGOS.map((l) => (
             <span className="dm-item" key={l}>{l}</span>
           ))}
@@ -215,8 +215,8 @@ export default function Landing() {
         <h2 className="text-2xl font-bold mb-6 text-center" data-wipe>What you get</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6" data-reveal-group>
           {features.map((f) => (
-            <div key={f.title} className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm anim-tilt-scene anim-clip">
-              <div className="anim-tilt" data-tilt-max="5">
+            <div key={f.title} className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm-scene">
+              <div className="">
                 <h3 className="font-semibold text-gray-900 mb-2">{f.title}</h3>
                 <p className="text-sm text-gray-600 mb-3">{f.desc}</p>
                 <p className="text-xs text-gray-400 font-mono bg-gray-50 p-2 rounded">{f.detail}</p>
