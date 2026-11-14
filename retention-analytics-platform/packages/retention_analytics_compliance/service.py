@@ -208,4 +208,7 @@ class SSOService:
             return {"status": "ok", "sso_enabled": False}
 
 
-__all__ = ["PrivacyService", "AuditExportService", "SSOService"]
+from retention_analytics_compliance.soc2_service import SOC2ComplianceService
+from retention_analytics_compliance.hipaa_service import HIPAAComplianceService
+
+__all__ = ["PrivacyService", "AuditExportService", "SSOService", "SOC2ComplianceService", "HIPAAComplianceService"]

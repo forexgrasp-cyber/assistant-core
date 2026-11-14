@@ -149,7 +149,7 @@ from retention_analytics_integrations.service import (
     WebhookManagementService,
     HiroWebhookService,
 )
-from retention_analytics_compliance.service import AuditExportService, PrivacyService, SSOService
+from retention_analytics_compliance.service import AuditExportService, PrivacyService, SSOService, SOC2ComplianceService, HIPAAComplianceService
 
 for svc_cls in (
     SaasMetricsService,
@@ -168,6 +168,8 @@ for svc_cls in (
     PrivacyService,
     AuditExportService,
     SSOService,
+    SOC2ComplianceService,
+    HIPAAComplianceService,
 ):
     svc_cls(registry).register()
 
