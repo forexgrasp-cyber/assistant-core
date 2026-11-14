@@ -211,5 +211,6 @@ class SSOService:
 from retention_analytics_compliance.soc2_service import SOC2ComplianceService
 from retention_analytics_compliance.hipaa_service import HIPAAComplianceService
 from retention_analytics_compliance.data_residency_service import DataResidencyService
+from retention_analytics_compliance.sla_service import SLAService
 
-__all__ = ["PrivacyService", "AuditExportService", "SSOService", "SOC2ComplianceService", "HIPAAComplianceService", "DataResidencyService"]
+__all__ = ["PrivacyService", "AuditExportService", "SSOService", "SOC2ComplianceService", "HIPAAComplianceService", "DataResidencyService", "SLAService"]
