@@ -1,5 +1,4 @@
 import Link from "next/link";
-import AnimBoot from "@/components/AnimBoot";
 
 const features = [
   {
@@ -55,13 +54,8 @@ const LOGOS = ["Acme Retail", "Northwind", "Globex", "Initech", "Umbrella", "Sta
 export default function Landing() {
   return (
     <div className="max-w-5xl mx-auto ra-landing" data-page-root>
-      <AnimBoot />
 
       {/* branded intro video (skippable) */}
-      <div className="anim-intro" data-max-wait="7">
-        <video src="/brand/intro.mp4" poster="/brand/intro-poster.jpg" muted playsInline preload="auto" />
-        <button className="anim-intro-skip" type="button">Skip ✕</button>
-      </div>
 
       <style>{`
         .ra-landing .hero{position:relative;border-radius:24px;padding:56px 40px;margin-top:8px;
@@ -87,20 +81,20 @@ export default function Landing() {
 
       {/* Hero */}
       <section className="hero text-left">
-        <div className="inline-block text-xs font-semibold px-3 py-1 rounded-full mb-4 anim-glow-box"
+        <div className="inline-block text-xs font-semibold px-3 py-1 rounded-full mb-4 "
           style={{ background: "rgba(129,140,248,.15)", color: "#a5b4fc", border: "1px solid rgba(129,140,248,.4)" }}>
           Multi-tenant retention platform
         </div>
-        <h1 data-split-init>Stop churn before it happens.</h1>
+        <h1>Stop churn before it happens.</h1>
         <p data-text-fade-in data-scroll-read>
           Automated retention workflows, multi-channel campaigns, and real-time analytics —
           every service wired into pipelines, not silos. 24 services. 4 workflows. 41 API endpoints.
         </p>
         <div className="flex gap-3 mt-6 flex-wrap">
-          <Link href="/campaigns" className="px-6 py-3 rounded-lg font-medium text-white anim-btn" data-btn-hover data-cursor="Go"
+          <Link href="/campaigns" className="px-6 py-3 rounded-lg font-medium text-white "
             style={{ background: "#6366f1" }}>Create a Campaign</Link>
-          <Link href="/how-it-works" className="px-6 py-3 rounded-lg font-medium border border-slate-600 text-slate-200" data-btn-hover>How it works</Link>
-          <Link href="/dashboard" className="px-6 py-3 rounded-lg font-medium border border-slate-600 text-slate-200" data-btn-hover>Open Dashboard</Link>
+          <Link href="/how-it-works" className="px-6 py-3 rounded-lg font-medium border border-slate-600 text-slate-200">How it works</Link>
+          <Link href="/dashboard" className="px-6 py-3 rounded-lg font-medium border border-slate-600 text-slate-200">Open Dashboard</Link>
         </div>
 
         {/* animated retention chart */}
@@ -155,33 +149,33 @@ export default function Landing() {
           One loop connects everything. You don't manage services in isolation — you run campaigns that tie targets, automations, and measurement together.
         </p>
 
-        <div className="anim-story" aria-label="Pipeline story">
+        <div className="" aria-label="Pipeline story">
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <div className="anim-story-progress">
-              <span className="anim-story-progress-line" /><span className="anim-story-progress-line" /><span className="anim-story-progress-line" />
+            <div className="-progress">
+              <span className="-progress-line" /><span className="-progress-line" /><span className="-progress-line" />
             </div>
-            <span className="anim-story-counter">1 / 3</span>
+            <span className="-counter">1 / 3</span>
           </div>
-          <div className="anim-story-track" style={{ height: "280vh" }}>
-            <div className="anim-story-pin pipe-track" style={{ position: "sticky", top: 40, minHeight: "60vh", display: "grid", placeItems: "center" }}>
-              <div className="anim-story-step" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
-                <div className="anim-story-step-content" style={{ textAlign: "center" }}>
+          <div className="-track" style={{ height: "280vh" }}>
+            <div className="-pin pipe-track" style={{ position: "sticky", top: 40, minHeight: "60vh", display: "grid", placeItems: "center" }}>
+              <div className="-step" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
+                <div className="-step-content" style={{ textAlign: "center" }}>
                   <span className="step-ico">📥</span>
-                  <h3 className="anim-glow" style={{ color: "#fff", fontSize: "1.8rem" }}>Events in.</h3>
+                  <h3 className="" style={{ color: "#fff", fontSize: "1.8rem" }}>Events in.</h3>
                   <p style={{ color: "#a5b0d8" }}>Every customer action lands in one idempotent stream.</p>
                 </div>
               </div>
-              <div className="anim-story-step" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
-                <div className="anim-story-step-content" style={{ textAlign: "center" }}>
+              <div className="-step" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
+                <div className="-step-content" style={{ textAlign: "center" }}>
                   <span className="step-ico">⚙️</span>
-                  <h3 className="anim-glow" style={{ color: "#fff", fontSize: "1.8rem" }}>Workflows fire.</h3>
+                  <h3 className="" style={{ color: "#fff", fontSize: "1.8rem" }}>Workflows fire.</h3>
                   <p style={{ color: "#a5b0d8" }}>Triggers match events to durable, step-by-step pipelines.</p>
                 </div>
               </div>
-              <div className="anim-story-step" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
-                <div className="anim-story-step-content" style={{ textAlign: "center" }}>
+              <div className="-step" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
+                <div className="-step-content" style={{ textAlign: "center" }}>
                   <span className="step-ico">📈</span>
-                  <h3 className="anim-glow" style={{ color: "#fff", fontSize: "1.8rem" }}>Retention climbs.</h3>
+                  <h3 className="" style={{ color: "#fff", fontSize: "1.8rem" }}>Retention climbs.</h3>
                   <p style={{ color: "#a5b0d8" }}>Services send, measure and report — the loop closes.</p>
                 </div>
               </div>
@@ -235,17 +229,17 @@ export default function Landing() {
       {/* Quick links */}
       <section className="py-10 text-center">
         <div className="flex flex-wrap justify-center gap-3">
-          <Link href="/analytics" className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700" data-btn-hover>Analytics</Link>
-          <Link href="/campaigns" className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700" data-btn-hover>Send a campaign</Link>
-          <Link href="/events" className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700" data-btn-hover>Ingest an event</Link>
-          <Link href="/reports" className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700" data-btn-hover>Generate report</Link>
+          <Link href="/analytics" className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700">Analytics</Link>
+          <Link href="/campaigns" className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700">Send a campaign</Link>
+          <Link href="/events" className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700">Ingest an event</Link>
+          <Link href="/reports" className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700">Generate report</Link>
         </div>
       </section>
 
       {/* CTA */}
       <section className="py-14 text-center">
-        <h2 className="anim-glow text-3xl font-extrabold mb-4" data-split-init>Ready to keep more customers?</h2>
-        <Link href="/campaigns" className="px-6 py-3 rounded-lg font-medium text-white" data-btn-hover data-cursor="Start"
+        <h2 className=" text-3xl font-extrabold mb-4">Ready to keep more customers?</h2>
+        <Link href="/campaigns" className="px-6 py-3 rounded-lg font-medium text-white"
           style={{ background: "#6366f1" }}>Create your first campaign</Link>
       </section>
     </div>
