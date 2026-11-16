@@ -39,12 +39,45 @@ services:
     networks: [web, internal]
     labels:
       - traefik.enable=true
-      - traefik.http.routers.retention-web.rule=Host(`${TRAEFIK_HOST:?set TRAEFIK_HOST in .env}`)
-      - traefik.http.routers.retention-web.entrypoints=websecure
-      - traefik.http.routers.retention-web.tls.certresolver=le
-      - traefik.http.services.retention-app.loadbalancer.server.port=47319
-      - traefik.http.routers.retention-web-insecure.rule=Host(`${TRAEFIK_HOST}`)
-      - traefik.http.routers.retention-web-insecure.entrypoints=web
+      # API router with path-specific rules (higher priority so it matches first)
+      - traefik.http.routers.retention-api.rule=Host(`${TRAEFIK_HOST:?set TRAEFIK_HOST in .env}`) && (PathPrefix(`/api`) || Path(`/health`) || Path(`/health/`) || Path(`/health/ready`) || Path(`/metrics`) || Path(`/robots.txt`) || Path(`/sitemap.xml`) || Path(`/llms.txt`) || Path(`/docs`) || Path(`/openapi.json`) || Path(`/redoc`))
+      - traefik.http.routers.retention-api.entrypoints=websecure
+      - traefik.http.routers.retention-api.tls.certresolver=le
+      - traefik.http.routers.retention-api.priority=100
+      - traefik.http.services.retention-api.loadbalancer.server.port=47319
+      # Insecure redirect for API paths
+      - traefik.http.routers.retention-api-insecure.rule=Host(`${TRAEFIK_HOST}`) && (PathPrefix(`/api`) || Path(`/health`) || Path(`/health/`) || Path(`/health/ready`) || Path(`/metrics`) || Path(`/robots.txt`) || Path(`/sitemap.xml`) || Path(`/llms.txt`) || Path(`/docs`) || Path(`/openapi.json`) || Path(`/redoc`))
+      - traefik.http.routers.retention-api-insecure.entrypoints=web
+      - traefik.http.routers.retention-api-insecure.middlewares=redirect-to-https@docker
+      - traefik.http.routers.retention-api-insecure.priority=100
+
+  portal:
+    image: retention-analytics-platform:portal
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      ENVIRONMENT: production
+      API_BACKEND_URL: http://api:47319
+      NEXT_PUBLIC_API_URL: https://${TRAEFIK_HOST:?TRAEFIK_HOST required}/api/v1
+    depends_on:
+      api:
+        condition: service_started
+    networks: [web, internal]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.retention-portal.rule=Host(`${TRAEFIK_HOST:?set TRAEFIK_HOST in .env}`)
+      - traefik.http.routers.retention-portal.entrypoints=websecure
+      - traefik.http.routers.retention-portal.tls.certresolver=le
+      - traefik.http.services.retention-portal.loadbalancer.server.port=47320
+      - traefik.http.routers.retention-portal-insecure.rule=Host(`${TRAEFIK_HOST}`)
+      - traefik.http.routers.retention-portal-insecure.entrypoints=web
+      - traefik.http.routers.retention-portal-insecure.middlewares=redirect-to-https@docker
+      # Dedicated high-priority router for root path only
+      - traefik.http.routers.retention-portal-root.rule=Host(`${TRAEFIK_HOST:?set TRAEFIK_HOST in .env}`) && Path(`/`)
+      - traefik.http.routers.retention-portal-root.priority=200
+      - traefik.http.routers.retention-portal-root.service=retention-portal
+      - traefik.http.routers.retention-portal-root.entrypoints=websecure
+      - traefik.http.routers.retention-portal-root.tls.certresolver=le
 
   workers:
     image: retention-analytics-platform:latest

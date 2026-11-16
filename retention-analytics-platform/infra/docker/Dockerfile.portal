@@ -1,0 +1,27 @@
+# syntax=docker/dockerfile:1
+# Retention Analytics Platform — Customer Portal (Next.js)
+# Build context is the project root (/opt/sites/retention-analytics-platform).
+
+ARG NODE_VERSION=20-alpine
+
+# ---------------------------------------------------------------- builder
+FROM node:${NODE_VERSION} AS builder
+WORKDIR /app
+COPY apps/web-customer/package.json apps/web-customer/package-lock.json* /app/
+RUN npm install
+COPY apps/web-customer/ ./
+RUN npm run build
+
+# ---------------------------------------------------------------- runtime
+FROM node:${NODE_VERSION} AS runtime
+WORKDIR /app
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1
+RUN addgroup -S appuser && adduser -S appuser -G appuser
+COPY --from=builder /app/.next /app/.next
+COPY --from=builder /app/public /app/public
+COPY --from=builder --chown=appuser:appuser /app/node_modules /app/node_modules
+COPY --from=builder --chown=appuser:appuser /app/package.json /app/package.json
+USER appuser
+EXPOSE 47320
+CMD ["npm", "run", "start"]
