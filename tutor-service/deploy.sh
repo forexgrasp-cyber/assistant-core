@@ -3,7 +3,10 @@
 # Usage: bash deploy.sh   (run on the server, from anywhere)
 set -euo pipefail
 
-REPO_DIR="/opt/sites/tutor-service"
+# The estate watcher checks this repo out as a monorepo (assistant-core) and
+# runs tutor-service/deploy.sh - resolve the site root from the script location
+# so the deploy works regardless of the checkout layout.
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="docker-compose.languages.yml"
 IMAGE="tutor-service:latest"
 HEALTH_URLS=("https://languages.snapford.com/health" "https://languages.snapford.com/")
