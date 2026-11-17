@@ -109,7 +109,7 @@ services:
     image: ghcr.io/${GITHUB_REPOSITORY:-local}/web:${IMAGE_TAG:-latest}
     build:
       context: ../../apps/web-customer
-      dockerfile: Dockerfile.web
+      dockerfile: ../infra/docker/Dockerfile.web
     environment:
       API_BACKEND_URL: http://api:47319
       NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:47319/api/v1}

@@ -15,6 +15,13 @@
   --sidebar-text: #cbd5e1;
   --danger: #dc2626;
   --ok: #059669;
+  --hero-bg: linear-gradient(140deg, #eef2ff 0%, #f8fafc 45%, #ecfeff 100%);
+  --hero-border: #e2e8f0;
+  --hero-text: #0f172a;
+  --hero-muted: #475569;
+  --glow-a: rgba(99, 102, 241, 0.35);
+  --glow-b: rgba(34, 211, 238, 0.28);
+  --grid-line: rgba(15, 23, 42, 0.06);
 }
 
 html.dark {
@@ -30,6 +37,13 @@ html.dark {
   --sidebar-text: #94a3b8;
   --danger: #f87171;
   --ok: #34d399;
+  --hero-bg: linear-gradient(140deg, #0b0d1f 0%, #141031 55%, #1b1140 100%);
+  --hero-border: rgba(129, 140, 248, 0.25);
+  --hero-text: #ffffff;
+  --hero-muted: #a5b0d8;
+  --glow-a: rgba(129, 140, 248, 0.35);
+  --glow-b: rgba(56, 189, 248, 0.25);
+  --grid-line: rgba(148, 163, 184, 0.08);
 }
 
 body {
@@ -74,3 +88,82 @@ body {
 
 /* Focus ring */
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Marketing hero — theme-aware aurora, grid and motion */
+.mk-hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--hero-border);
+  border-radius: 28px;
+  background: var(--hero-bg);
+  padding: 60px 40px;
+}
+.mk-hero::before {
+  content: "";
+  position: absolute;
+  inset: -35% -10% auto;
+  height: 75%;
+  background: radial-gradient(closest-side, var(--glow-a), transparent);
+  animation: mkDrift 14s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+.mk-hero::after {
+  content: "";
+  position: absolute;
+  inset: auto -20% -45% auto;
+  width: 55%;
+  height: 70%;
+  background: radial-gradient(closest-side, var(--glow-b), transparent);
+  animation: mkDrift2 18s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+.mk-grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 0%, #000 25%, transparent 75%);
+  mask-image: radial-gradient(ellipse at 50% 0%, #000 25%, transparent 75%);
+  pointer-events: none;
+}
+.mk-hero-content { position: relative; z-index: 1; }
+
+@keyframes mkDrift {
+  from { transform: translate3d(-4%, -3%, 0) scale(1); }
+  to { transform: translate3d(6%, 4%, 0) scale(1.15); }
+}
+@keyframes mkDrift2 {
+  from { transform: translate3d(4%, 3%, 0) scale(1.1); }
+  to { transform: translate3d(-6%, -4%, 0) scale(1); }
+}
+@keyframes mkFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes mkDraw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes mkPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.mk-float { animation: mkFloat 6s ease-in-out infinite; }
+.mk-float-delayed { animation: mkFloat 7s ease-in-out 0.8s infinite; }
+.mk-draw { stroke-dasharray: 1400; stroke-dashoffset: 1400; animation: mkDraw 2.6s ease-out forwards; }
+.mk-pulse { animation: mkPulse 3.2s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-hero::before,
+  .mk-hero::after,
+  .mk-float,
+  .mk-float-delayed,
+  .mk-pulse {
+    animation: none;
+  }
+  .mk-draw {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}

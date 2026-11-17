@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 const KEY = "ra_theme";
 
 export type Theme = "light" | "dark";
+
+type ThemeContextValue = { theme: Theme; toggle: () => void };
+
+const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function getTheme(): Theme {
   if (typeof window === "undefined") return "light";
@@ -16,10 +20,11 @@ export function getTheme(): Theme {
 export function applyTheme(theme: Theme) {
   if (typeof document === "undefined") return;
   document.documentElement.classList.toggle("dark", theme === "dark");
+  document.documentElement.style.colorScheme = theme;
   window.localStorage.setItem(KEY, theme);
 }
 
-export function useTheme(): { theme: Theme; toggle: () => void } {
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>("light");
 
   useEffect(() => {
@@ -28,15 +33,14 @@ export function useTheme(): { theme: Theme; toggle: () => void } {
     applyTheme(t);
   }, []);
 
-  const toggle = () => {
+  const toggle = useCallback(() => {
     setTheme((prev) => {
       const next = prev === "dark" ? "light" : "dark";
       applyTheme(next);
       return next;
     });
-  };
+  }, []);
 
-  // keyboard shortcut: "t" toggles theme (when not typing in an input)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
@@ -45,7 +49,27 @@ export function useTheme(): { theme: Theme; toggle: () => void } {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, [toggle]);
+
+  return <ThemeContext.Provider value={{ theme, toggle }}>{children}</ThemeContext.Provider>;
+}
+
+export function useTheme(): ThemeContextValue {
+  const ctx = useContext(ThemeContext);
+  const [fallback, setFallback] = useState<Theme>("light");
+
+  useEffect(() => {
+    setFallback(getTheme());
   }, []);
 
-  return { theme, toggle };
+  const fallbackToggle = useCallback(() => {
+    setFallback((prev) => {
+      const next = prev === "dark" ? "light" : "dark";
+      applyTheme(next);
+      return next;
+    });
+  }, []);
+
+  if (ctx) return ctx;
+  return { theme: fallback, toggle: fallbackToggle };
 }

@@ -12,6 +12,8 @@ export const DICTS: Record<Lang, Record<string, string>> = {
   en: {
     appName: "Retention Analytics",
     portal: "Customer Portal",
+    nav_product: "Product",
+    nav_status: "Status",
     nav_dashboard: "Dashboard",
     nav_campaigns: "Campaigns",
     nav_flows: "Flows",
@@ -57,6 +59,8 @@ export const DICTS: Record<Lang, Record<string, string>> = {
   de: {
     appName: "Retention Analytics",
     portal: "Kundenportal",
+    nav_product: "Produkt",
+    nav_status: "Status",
     nav_dashboard: "Übersicht",
     nav_campaigns: "Kampagnen",
     nav_flows: "Flows",

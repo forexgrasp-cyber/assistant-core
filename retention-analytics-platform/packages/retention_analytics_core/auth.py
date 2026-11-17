@@ -65,6 +65,11 @@ def _secret() -> str | None:
         return None
 
 
+def resolve_jwt_secret() -> str | None:
+    """Return the configured JWT signing secret, or ``None`` when unset."""
+    return _secret()
+
+
 async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
 ) -> CurrentUser:

@@ -33,6 +33,7 @@ dependencies = [
     "mcp>=1.0.0",
     "fastmcp>=0.1.0",
     "shared-canonical-services @ git+https://github.com/forexgrasp-cyber/shared-canonical-services@v2026.10.0",
+    "pyjwt>=2.8.0",
 ]
 
 [project.optional-dependencies]

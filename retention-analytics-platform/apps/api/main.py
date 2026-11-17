@@ -19,8 +19,10 @@ from __future__ import annotations
 import hmac
 import html
 import json
+import os
+import secrets
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from typing import Annotated, Any
 from uuid import UUID
@@ -32,7 +34,7 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import AliasChoices, BaseModel, Field
 from retention_analytics_analytics_core.cohort_service import CohortService
 from retention_analytics_analytics_core.metric_service import MetricService
-from retention_analytics_core.auth import CurrentUser, get_current_user
+from retention_analytics_core.auth import CurrentUser, get_current_user, resolve_jwt_secret
 from retention_analytics_core.canonical import get_adapters
 from retention_analytics_core.database import get_engine, get_session, get_session_factory
 from retention_analytics_core.entities.kernel import (
@@ -150,6 +152,9 @@ from retention_analytics_integrations.service import (
     HiroWebhookService,
 )
 from retention_analytics_compliance.service import AuditExportService, PrivacyService, SSOService, SOC2ComplianceService, HIPAAComplianceService, DataResidencyService, SLAService
+from retention_analytics_auth.advanced_rbac import AdvancedRBACService
+from retention_analytics_analytics.data_lineage import DataLineageService
+from retention_analytics_analytics.metrics_ui import MetricsUIService
 
 for svc_cls in (
     SaasMetricsService,
@@ -172,6 +177,9 @@ for svc_cls in (
     HIPAAComplianceService,
     DataResidencyService,
     SLAService,
+    AdvancedRBACService,
+    DataLineageService,
+    MetricsUIService,
 ):
     svc_cls(registry).register()
 
@@ -1447,6 +1455,179 @@ async def capture_lead(
             "captured_at": datetime.now(UTC).isoformat(),
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Portal authentication (canonical credentials -> platform bearer token)
+# ---------------------------------------------------------------------------
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class PublicLeadRequest(BaseModel):
+    email: str
+    source: str = "landing"
+    message: str = ""
+    company: str = ""
+
+
+_auth_service_cache: dict[str, Any] = {}
+
+# Development-only signing secret. In production the canonical secret manager
+# must provide JWT_SECRET, otherwise portal login fails closed.
+_DEV_JWT_SECRET = secrets.token_urlsafe(32)
+
+
+def _canonical_auth_service():
+    """Return the cached canonical authentication service used for logins."""
+    if "service" not in _auth_service_cache:
+        from shared.auth import AuthenticationService
+
+        _auth_service_cache["service"] = AuthenticationService(
+            database_path=os.getenv("AUTH_DB_PATH", "data/auth.db"),
+            jwt_secret_key=resolve_jwt_secret(),
+        )
+    return _auth_service_cache["service"]
+
+
+def _platform_role(canonical_role: str | None) -> str:
+    """Map a canonical auth role onto the platform's RBAC roles."""
+    mapping = {
+        "admin": "admin",
+        "owner": "admin",
+        "manager": "manager",
+        "operator": "operator",
+        "member": "operator",
+        "viewer": "viewer",
+    }
+    return mapping.get((canonical_role or "member").lower(), "viewer")
+
+
+@app.post("/api/v1/auth/login")
+async def auth_login(body: LoginRequest, request: Request) -> dict[str, Any]:
+    """Authenticate a portal user and issue a platform bearer token.
+
+    Credentials are verified by the canonical authentication service; the
+    issued token carries the fleet claim set the platform validates
+    (``sub``, ``tenant_id``, ``role``, ``exp``).
+    """
+    settings = get_settings()
+    secret = resolve_jwt_secret()
+    if not secret:
+        if settings.is_production:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Authentication is not configured",
+            )
+        secret = _DEV_JWT_SECRET
+
+    try:
+        import jwt as pyjwt
+    except ImportError as exc:  # pragma: no cover - PyJWT ships with the platform
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="JWT library unavailable",
+        ) from exc
+
+    service = _canonical_auth_service()
+    ip = request.client.host if request.client else None
+    result = service.login(
+        body.email,
+        body.password,
+        ip_address=ip,
+        auth_type="jwt",
+    )
+    if not result.success:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=result.error,
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = result.data["user"]
+    row = service.db.get_user_by_id(user["id"]) or {}
+    role = _platform_role(row.get("role"))
+    tenant_id = row.get("tenant_id") or DEFAULT_TENANT
+    expires_in = int(result.data.get("expires_in") or 900)
+    now = datetime.now(UTC)
+    token = pyjwt.encode(
+        {
+            "sub": user["id"],
+            "email": user["email"],
+            "tenant_id": tenant_id,
+            "role": role,
+            "iat": int(now.timestamp()),
+            "exp": int((now + timedelta(seconds=expires_in)).timestamp()),
+        },
+        secret,
+        algorithm=settings.jwt_algorithm,
+    )
+    logger.info("auth.login_succeeded", user_id=user["id"], tenant_id=tenant_id, role=role)
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "expires_in": expires_in,
+        "user": {
+            "id": user["id"],
+            "email": user["email"],
+            "role": role,
+            "tenant_id": tenant_id,
+        },
+    }
+
+
+@app.get("/api/v1/auth/me")
+async def auth_me(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, Any]:
+    """Return the authenticated principal for the portal session."""
+    return {"user_id": user.user_id, "tenant_id": user.tenant_id, "role": user.role}
+
+
+@app.post("/api/v1/public/leads")
+async def capture_public_lead(body: PublicLeadRequest, request: Request) -> dict[str, Any]:
+    """Capture a marketing lead from the public landing page (no auth).
+
+    The landing page is public, so this endpoint stores the lead directly and
+    also forwards it through the canonical lead-capture service.
+    """
+    from retention_analytics_core.repository import data_root
+
+    email = body.email.strip().lower()
+    if "@" not in email:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="A valid email address is required",
+        )
+
+    record = {
+        "email": email,
+        "company": body.company.strip(),
+        "message": body.message.strip(),
+        "source": body.source,
+        "tenant_id": DEFAULT_TENANT,
+        "captured_at": datetime.now(UTC).isoformat(),
+    }
+
+    leads_path = data_root() / "marketing_leads.json"
+    try:
+        leads_path.parent.mkdir(parents=True, exist_ok=True)
+        existing = json.loads(leads_path.read_text()) if leads_path.exists() else []
+        if not isinstance(existing, list):
+            existing = []
+        existing.append(record)
+        leads_path.write_text(json.dumps(existing, indent=2, default=str))
+    except OSError as exc:
+        logger.warning("public_lead.persist_failed", error=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Lead capture unavailable",
+        ) from exc
+
+    await registry.invoke("lead_capture", "capture", record)
+    logger.info("public_lead.captured", source=body.source)
+    return {"status": "captured", "email": email}
 
 
 # ---------------------------------------------------------------------------

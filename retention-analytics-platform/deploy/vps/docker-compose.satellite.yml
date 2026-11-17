@@ -48,7 +48,7 @@ services:
       # Insecure redirect for API paths
       - traefik.http.routers.retention-api-insecure.rule=Host(`${TRAEFIK_HOST}`) && (PathPrefix(`/api`) || Path(`/health`) || Path(`/health/`) || Path(`/health/ready`) || Path(`/metrics`) || Path(`/robots.txt`) || Path(`/sitemap.xml`) || Path(`/llms.txt`) || Path(`/docs`) || Path(`/openapi.json`) || Path(`/redoc`))
       - traefik.http.routers.retention-api-insecure.entrypoints=web
-      - traefik.http.routers.retention-api-insecure.middlewares=redirect-to-https@docker
+      - traefik.http.routers.retention-api-insecure.middlewares=redirect
       - traefik.http.routers.retention-api-insecure.priority=100
 
   portal:
@@ -71,7 +71,7 @@ services:
       - traefik.http.services.retention-portal.loadbalancer.server.port=47320
       - traefik.http.routers.retention-portal-insecure.rule=Host(`${TRAEFIK_HOST}`)
       - traefik.http.routers.retention-portal-insecure.entrypoints=web
-      - traefik.http.routers.retention-portal-insecure.middlewares=redirect-to-https@docker
+      - traefik.http.routers.retention-portal-insecure.middlewares=redirect
       # Dedicated high-priority router for root path only
       - traefik.http.routers.retention-portal-root.rule=Host(`${TRAEFIK_HOST:?set TRAEFIK_HOST in .env}`) && Path(`/`)
       - traefik.http.routers.retention-portal-root.priority=200
