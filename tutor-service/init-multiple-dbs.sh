@@ -12,6 +12,14 @@ create_db_and_user() {
     local user_name=$2
     local password=$3
 
+    # A service that is not deployed on this host has no password. Creating a
+    # role with an EMPTY password would leave a login that anyone can use,
+    # so those roles are skipped instead.
+    if [ -z "$password" ]; then
+        echo "Skipping '$db_name' - no password configured for '$user_name'"
+        return 0
+    fi
+
     echo "Creating database '$db_name' and user '$user_name'..."
 
     psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
@@ -19,7 +27,7 @@ create_db_and_user() {
         DO \$\$
         BEGIN
             IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$user_name') THEN
-                CREATE ROLE $user_name WITH LOGIN PASSWORD '$password';
+                CREATE ROLE $user_name WITH LOG PASSWORD '$password';
             ELSE
                 ALTER ROLE $user_name WITH PASSWORD '$password';
             END IF;
@@ -46,16 +54,18 @@ create_db_and_user() {
         CREATE EXTENSION IF NOT EXISTS "pg_trgm";
         CREATE EXTENSION IF NOT EXISTS "btree_gin";
         CREATE EXTENSION IF NOT EXISTS "btree_gist";
-EOSQL
+    EOSQL
 
     echo "Database '$db_name' ready for user '$user_name'"
 }
 
-# Create databases for each service
-# Passwords are read from environment variables (set via Docker secrets/env)
+# Create databases for each service.
+# Passwords are read from environment variables (set via Docker secrets/env).
+# Only the tutor service runs on this host; the others are skipped when
+# their password is not set.
 create_db_and_user "tutor_service" "tutor_user" "${TUTOR_DB_PASSWORD}"
-create_db_and_user "callagent_service" "callagent_user" "${CALLAGENT_DB_PASSWORD}"
-create_db_and_user "jarvis_service" "jarvis_user" "${JARVIS_DB_PASSWORD}"
-create_db_and_user "hvac_service" "hvac_user" "${HVAC_DB_PASSWORD}"
+create_db_and_user "callagent_service" "callagent_user" "${CALLAGENT_DB_PASSWORD:-}"
+create_db_and_user "jarvis_service" "jarvis_user" "${JARVIS_DB_PASSWORD:-}"
+create_db_and_user "hvac_service" "hvac_user" "${HVAC_DB_PASSWORD:-}"
 
 echo "All databases initialized successfully!"

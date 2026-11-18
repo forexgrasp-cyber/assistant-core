@@ -1,4 +1,21 @@
-version: '3.8'
+# =============================================================================
+# Tutor Service - languages.snapford.com
+# =============================================================================
+# The estate edge (infra-edge Traefik) owns TLS and routes every hostname.
+# This service therefore:
+#   - ships NO proxy of its own (the old nginx + certbot pair is gone: it
+#     fought the edge for ports 80/443 and issued a second certificate for
+#     a host the wildcard *.snapford.com certificate already covers),
+#   - joins the external `web` network and is routed by Docker labels,
+#   - publishes only a LOOPBACK port so the deploy health gate can probe
+#     the container without exposing it to the internet.
+#
+# The shared canonical library is baked into the image as a wheel (see
+# Dockerfile.prod); the deploy script stages it from the shared checkout
+# before the build. Nothing of the shared library is mounted at runtime.
+# =============================================================================
+
+name: languages
 
 services:
   # =============================================================================
@@ -10,6 +27,9 @@ services:
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       POSTGRES_DB: postgres
+      # The init script creates one role per service. Only the tutor role is
+      # needed here; the others are skipped when their password is empty.
+      TUTOR_DB_PASSWORD: ${TUTOR_DB_PASSWORD:?set TUTOR_DB_PASSWORD in .env}
     secrets:
       - postgres_password
     volumes:
@@ -47,32 +67,67 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
-        reservations:
           memory: 256M
+        reservations:
+          memory: 128M
 
   # =============================================================================
-  # TUTOR SERVICE ONLY
+  # TUTOR SERVICE
   # =============================================================================
   tutor-service:
     build:
-      context: ../tutor-service
+      context: .
       dockerfile: Dockerfile.prod
     container_name: tutor_service
     environment:
+      # Overrides the .env value (which points at localhost) so the container
+      # reaches postgres/redis by their compose service names.
       - DATABASE_URL=postgresql+asyncpg://tutor_user:${TUTOR_DB_PASSWORD}@postgres:5432/tutor_service
       - REDIS_URL=redis://redis:6379/0
       - ENVIRONMENT=production
       - PYTHONUNBUFFERED=1
     env_file:
-      - ../tutor-service/.env
+      - .env
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # Loopback only: the edge reaches the container over the `web` network.
+    # The port exists for the deploy health gate, never for the internet.
+    ports:
+      - "127.0.0.1:8147:8147"
     networks:
       - backend
+      - web
+    labels:
+      - traefik.enable=true
+      # Host() rule with an explicit priority: Traefik ranks 0 as unset and
+      # would fall back to rule length.
+      - traefik.http.routers.tutor-web.rule=Host(`${TRAEFIK_HOST:-languages.snapford.com}`)
+      - traefik.http.routers.tutor-web.priority=30
+      - traefik.http.routers.tutor-web.entrypoints=websecure
+      - traefik.http.routers.tutor-web.tls.certresolver=le
+      # Wildcard certificate: one cert for the whole *.snapford.com zone
+      # instead of one per host (LE issues 50 certs/week).
+      - traefik.http.routers.tutor-web.tls.domains[0].main=*.snapford.com
+      # Self-owned middlewares (estate convention): gate-<slug> allow-all
+      # ipallowlist (the edge fronts with Cloudflare) + the http->https
+      # redirect. Never reference a bare `gate`/`redirect` - nothing defines
+      # those, a dangling reference disables this router and the tools
+      # wildcard (priority 1) answers the host instead.
+      - traefik.http.routers.tutor-web.middlewares=gate-tutor,ratelimit-tutor
+      - traefik.http.services.tutor-app.loadbalancer.server.port=8147
+      - traefik.http.middlewares.gate-tutor.ipallowlist.sourcerange=0.0.0.0/0,::/0
+      - traefik.http.middlewares.ratelimit-tutor.ratelimit.average=100
+      - traefik.http.middlewares.ratelimit-tutor.ratelimit.burst=50
+      # http -> https.
+      - traefik.http.routers.tutor-web-insecure.rule=Host(`${TRAEFIK_HOST:-languages.snapford.com}`)
+      - traefik.http.routers.tutor-web-insecure.priority=30
+      - traefik.http.routers.tutor-web-insecure.entrypoints=web
+      - traefik.http.routers.tutor-web-insecure.middlewares=redirect-tutor
+      - traefik.http.routers.tutor-web-insecure.service=tutor-app
+      - traefik.http.middlewares.redirect-tutor.redirectscheme.scheme=https
     restart: unless-stopped
     deploy:
       resources:
@@ -80,49 +135,18 @@ services:
           memory: 1G
         reservations:
           memory: 512M
-
-  # =============================================================================
-  # REVERSE PROXY & SSL
-  # =============================================================================
-  nginx:
-    image: nginx:alpine
-    container_name: languages_nginx
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.languages.conf:/etc/nginx/nginx.conf:ro
-      - ./certbot/conf:/etc/letsencrypt:ro
-      - ./certbot/www:/var/www/certbot:ro
-    depends_on:
-      - tutor-service
-    networks:
-      - backend
-      - frontend
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 128M
-
-  certbot:
-    image: certbot/certbot:latest
-    container_name: languages_certbot
-    volumes:
-      - ./certbot/conf:/etc/letsencrypt
-      - ./certbot/www:/var/www/certbot
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done'"
-    networks:
-      - frontend
-    restart: unless-stopped
+    logging: &default-logging
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
 
 networks:
   backend:
     driver: bridge
-  frontend:
-    driver: bridge
+  web:
+    external: true
+    name: web
 
 volumes:
   postgres_data:

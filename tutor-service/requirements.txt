@@ -1,0 +1,47 @@
+# Tutor Service Requirements
+#
+# The pins below are ALIGNED with shared-canonical-services==2026.11.4
+# (shared/pyproject.toml). The two are installed into the same image, so a
+# conflicting pin (httpx 0.27 vs 0.28, starlette 0.36 vs the fastapi pin,
+# ...) makes the install unsatisfiable.
+#
+# `shared-canonical-services` itself is NOT listed here: it is a PRIVATE
+# wheel that is not on PyPI. The deploy script stages it into wheels/ and
+# Dockerfile.prod installs it from there.
+
+# Core
+fastapi==0.115.0
+uvicorn[standard]>=0.32.0,<0.35.0
+gunicorn==23.0.0
+httpx==0.28.1
+pydantic[email]==2.13.5
+pydantic-settings==2.12.0
+python-dotenv==1.2.3
+structlog==24.4.0
+
+# Database
+SQLAlchemy==2.1.1
+asyncpg==0.31.0
+aiosqlite==0.22.1
+alembic==1.20.0
+
+# Auth
+python-jose[cryptography]==3.5.0
+passlib==1.7.4
+bcrypt==5.0.0
+python-multipart>=0.0.6
+
+# Redis
+redis==8.1.0
+
+# AI/LLM
+openai>=1.10.0
+anthropic>=0.20.0
+
+# Speech
+SpeechRecognition>=3.10.0
+gtts>=2.4.0
+
+# Utilities
+python-dateutil>=2.8.0
+email-validator==2.4.0

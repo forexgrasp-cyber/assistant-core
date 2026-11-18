@@ -1,0 +1,27 @@
+# Secrets - never committed
+.env
+.env.*
+!.env.example
+.postgres_password
+*.pem
+*.key
+
+# The shared canonical wheel is staged into the build context by
+# deploy.sh (it is vendored in the shared checkout, not here).
+wheels/
+
+# Runtime artifacts
+certbot/
+backups/
+data/
+logs/
+*.db
+*.sqlite3
+tutor_service.egg-info/
+__pycache__/
+*.py[cod]
+
+# Frontend
+node_modules/
+dist/
+.vite/

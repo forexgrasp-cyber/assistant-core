@@ -5,6 +5,13 @@ set -e
 
 COMPOSE_FILE="docker-compose.languages.yml"
 PROJECT_NAME="languages"
+DOMAIN="languages.snapford.com"
+
+# TLS is terminated by the estate edge (infra-edge Traefik). There is no
+# ssl command here any more: the wildcard *.snapford.com certificate covers
+# languages.snapford.com and the edge renews it. The old nginx + certbot
+# pair was removed from the compose file because it fought the edge for
+# ports 80/443.
 
 # Colors for output
 RED='\033[0;31m'
@@ -56,24 +63,28 @@ check_prerequisites() {
         exit 1
     fi
 
-    # Check tutor-service .env
-    if [ ! -f ../tutor-service/.env ]; then
-        log_error "../tutor-service/.env not found. Copy from shared.env.template and configure."
+    # Check the tutor database password (the compose file interpolates it)
+    if ! grep -q '^TUTOR_DB_PASSWORD=' .env; then
+        log_error "TUTOR_DB_PASSWORD not found in .env"
         exit 1
     fi
 
     log_success "Prerequisites check passed"
 }
 
+compose() {
+    docker compose -f "$COMPOSE_FILE" -p "$PROJECT_NAME" "$@"
+}
+
 build() {
     log_info "Building Docker images..."
-    docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME build --no-cache
+    docker compose -f $COMPOSE_FILE -p $PROJECT_NAME build --no-cache
     log_success "Build complete"
 }
 
 up() {
     log_info "Starting services..."
-    docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME up -d
+    docker compose -f $COMPOSE_FILE -p $PROJECT_NAME up -d
     log_success "Services started"
 
     # Wait for health checks
@@ -86,13 +97,13 @@ up() {
 
 down() {
     log_info "Stopping services..."
-    docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME down
+    docker compose -f $COMPOSE_FILE -p $PROJECT_NAME down
     log_success "Services stopped"
 }
 
 restart() {
     log_info "Restarting services..."
-    docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME restart
+    docker compose -f $COMPOSE_FILE -p $PROJECT_NAME restart
     log_success "Services restarted"
     sleep 5
     check_health
@@ -109,20 +120,20 @@ check_health() {
         fi
         if [ $i -eq 30 ]; then
             log_error "Tutor service health check failed"
-            docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME logs tutor-service --tail=50
+            docker compose -f $COMPOSE_FILE -p $PROJECT_NAME logs tutor-service --tail=50
             exit 1
         fi
         sleep 2
     done
 
-    # Check nginx
+    # Check the public edge route (TLS + routing)
     for i in {1..10}; do
-        if curl -sf http://localhost/health > /dev/null 2>&1; then
-            log_success "Nginx is healthy"
+        if curl -sf "https://${DOMAIN}/health" > /dev/null 2>&1; then
+            log_success "Edge route ${DOMAIN} is healthy"
             break
         fi
         if [ $i -eq 10 ]; then
-            log_warning "Nginx health check failed (may need SSL certs first)"
+            log_warning "Edge route ${DOMAIN} did not answer (cert or routing issue)"
             break
         fi
         sleep 2
@@ -130,70 +141,16 @@ check_health() {
 }
 
 logs() {
-    docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME logs -f --tail=100
+    docker compose -f $COMPOSE_FILE -p $PROJECT_NAME logs -f --tail=100
 }
 
 status() {
     log_info "Service status:"
-    docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME ps
+    docker compose -f $COMPOSE_FILE -p $PROJECT_NAME ps
 
     echo ""
     log_info "Health checks:"
     check_health
-}
-
-ssl() {
-    log_info "Obtaining SSL certificates for languages.snapford.com..."
-
-    # Ensure nginx is running for ACME challenge
-    docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME up -d nginx
-
-    # Wait for nginx to be ready
-    sleep 5
-
-    # Obtain certificates
-    docker run -it --rm \
-        -v "$(pwd)/certbot/conf:/etc/letsencrypt" \
-        -v "$(pwd)/certbot/www:/var/www/certbot" \
-        certbot/certbot certonly \
-        --webroot \
-        -w /var/www/certbot \
-        -d languages.snapford.com \
-        -d www.languages.snapford.com \
-        --email admin@snapford.com \
-        --agree-tos \
-        --no-eff-email \
-        --force-renewal
-
-    if [ $? -eq 0 ]; then
-        log_success "SSL certificates obtained"
-        # Reload nginx with new certs
-        docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME exec nginx nginx -s reload
-        log_success "Nginx reloaded with SSL"
-    else
-        log_error "Failed to obtain SSL certificates"
-        log_info "Check DNS: dig languages.snapford.com"
-        log_info "Check nginx logs: docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME logs nginx"
-        exit 1
-    fi
-}
-
-ssl_renew() {
-    log_info "Renewing SSL certificates..."
-    docker run -it --rm \
-        -v "$(pwd)/certbot/conf:/etc/letsencrypt" \
-        -v "$(pwd)/certbot/www:/var/www/certbot" \
-        certbot/certbot renew \
-        --webroot \
-        -w /var/www/certbot
-
-    if [ $? -eq 0 ]; then
-        log_success "SSL certificates renewed"
-        docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME exec nginx nginx -s reload
-    else
-        log_error "Failed to renew SSL certificates"
-        exit 1
-    fi
 }
 
 backup() {
@@ -205,7 +162,7 @@ backup() {
     mkdir -p $BACKUP_DIR
 
     # Backup PostgreSQL
-    docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME exec -T postgres pg_dumpall -U postgres | gzip > "$BACKUP_FILE"
+    docker compose -f $COMPOSE_FILE -p $PROJECT_NAME exec -T postgres pg_dumpall -U postgres | gzip > "$BACKUP_FILE"
 
     log_success "Backup created: $BACKUP_FILE"
 }
@@ -237,13 +194,13 @@ restore() {
 
 migrate() {
     log_info "Running database migrations for tutor-service..."
-    docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME exec tutor-service alembic upgrade head
+    docker compose -f $COMPOSE_FILE -p $PROJECT_NAME exec tutor-service alembic upgrade head
     log_success "Migrations complete"
 }
 
 seed() {
     log_info "Seeding curriculum..."
-    docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME exec tutor-service python -m app.scripts.seed_curriculum
+    docker compose -f $COMPOSE_FILE -p $PROJECT_NAME exec tutor-service python -m app.scripts.seed_curriculum
     log_success "Curriculum seeded"
 }
 
@@ -265,8 +222,6 @@ show_help() {
     echo "  restart     - Restart all services"
     echo "  status      - Show service status and health"
     echo "  logs        - Follow logs (Ctrl+C to exit)"
-    echo "  ssl         - Obtain Let's Encrypt SSL certificates"
-    echo "  ssl-renew   - Renew SSL certificates"
     echo "  backup      - Create database backup"
     echo "  restore     - Restore database from backup file"
     echo "  migrate     - Run database migrations"
@@ -275,7 +230,6 @@ show_help() {
     echo ""
     echo "Examples:"
     echo "  $0 up          # Deploy and start"
-    echo "  $0 ssl         # Get SSL certs (run after up)"
     echo "  $0 status      # Check health"
     echo "  $0 logs        # View logs"
 }
@@ -302,12 +256,6 @@ case "${1:-}" in
         ;;
     logs)
         logs
-        ;;
-    ssl)
-        ssl
-        ;;
-    ssl-renew)
-        ssl_renew
         ;;
     backup)
         backup

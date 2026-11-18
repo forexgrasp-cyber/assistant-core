@@ -1,0 +1,121 @@
+# =============================================================================
+# Tutor Service - Production Dockerfile (Multi-stage Build)
+# =============================================================================
+# The shared canonical library is a PRIVATE wheel (not on PyPI). The deploy
+# script stages it into wheels/ before the build:
+#
+#   wheels/shared_canonical_services-<version>-py3-none-any.whl
+#
+# It is installed from there. The build NEVER falls back to PyPI for it and
+# NEVER hides a failed install behind `|| true`: a swallowed pip failure
+# leaves the image with no dependencies at all and the container dies on
+# `import fastapi` with a rollback that looks like a health-check failure.
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Stage 1: Build Frontend (React + Vite)
+# -----------------------------------------------------------------------------
+FROM node:20-alpine AS frontend-builder
+
+WORKDIR /app/frontend
+
+# Copy package files
+COPY frontend/package*.json ./
+
+# Install dependencies (including dev for build)
+RUN npm ci
+
+# Copy frontend source
+COPY frontend/ ./
+
+# Build production bundle
+RUN npm run build
+
+# -----------------------------------------------------------------------------
+# Stage 2: Build Python Dependencies
+# -----------------------------------------------------------------------------
+FROM python:3.12-slim AS python-builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Python dependency files
+COPY pyproject.toml ./
+COPY requirements*.txt ./
+
+# The private shared wheel is part of the build context.
+COPY wheels/ ./wheels/
+
+# Build every runtime dependency into /wheels so the runtime stage can
+# install with --no-index. Failures are fatal on purpose.
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt && \
+    pip wheel --no-cache-dir --wheel-dir /wheels ./wheels/shared_canonical_services-*.whl
+
+# -----------------------------------------------------------------------------
+# Stage 3: Production Runtime
+# -----------------------------------------------------------------------------
+FROM python:3.12-slim AS runtime
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /bin/bash appuser
+
+WORKDIR /app
+
+# Copy wheels from builder
+COPY --from=python-builder /wheels /wheels
+
+# Install Python packages from wheels (offline). Fatal on failure.
+RUN pip install --no-cache-dir --no-index --find-links=/wheels /wheels/*.whl && \
+    rm -rf /wheels
+
+# Copy application code
+COPY --chown=appuser:appuser app/ ./app/
+COPY --chown=appuser:appuser alembic/ ./alembic/
+COPY --chown=appuser:appuser alembic.ini ./
+COPY --chown=appuser:appuser pyproject.toml ./
+
+# Copy built frontend from frontend-builder
+COPY --from=frontend-builder --chown=appuser:appuser /app/frontend/dist ./app/static/
+
+# Create directories for uploads, logs, etc.
+RUN mkdir -p /app/data/uploads /app/data/logs /app/data/temp && \
+    chown -R appuser:appuser /app/data
+
+# Switch to non-root user
+USER appuser
+
+# Health check. The app has no trusted-host middleware, so a plain Host
+# header is fine; Traefik v3 skips unhealthy containers, so a failing
+# check hides the router entirely.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8147/health || exit 1
+
+# Expose port
+EXPOSE 8147
+
+# Run with gunicorn for production
+CMD ["gunicorn", "app.main:app", \
+     "--workers", "4", \
+     "--worker-class", "uvicorn.workers.UvicornWorker", \
+     "--bind", "0.0.0.0:8147", \
+     "--timeout", "120", \
+     "--keep-alive", "5", \
+     "--max-requests", "1000", \
+     "--max-requests-jitter", "100", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-", \
+     "--log-level", "info"]
