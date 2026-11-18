@@ -53,9 +53,14 @@ COPY wheels/ ./wheels/
 
 # Build every runtime dependency into /wheels so the runtime stage can
 # install with --no-index. Failures are fatal on purpose.
+#
+# requirements.txt AND the private shared wheel are resolved in ONE pip call:
+# resolving them separately can produce two different versions of the same
+# transitive dep (e.g. anyio) in /wheels, and installing "*.whl" wholesale then
+# fails with ResolutionImpossible.
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt && \
-    pip wheel --no-cache-dir --wheel-dir /wheels ./wheels/shared_canonical_services-*.whl
+    pip wheel --no-cache-dir --wheel-dir /wheels \
+        -r requirements.txt ./wheels/shared_canonical_services-*.whl
 
 # -----------------------------------------------------------------------------
 # Stage 3: Production Runtime
