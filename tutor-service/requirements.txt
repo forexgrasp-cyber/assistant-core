@@ -24,6 +24,14 @@ SQLAlchemy==2.1.1
 asyncpg==0.31.0
 aiosqlite==0.22.1
 alembic==1.20.0
+# shared.database builds a postgresql:// (psycopg v3) engine at import time
+# and shared.database.database_config imports psycopg2 at module top. In wheel
+# 2026.11.4 both drivers live only in the 'database' extra, which the image
+# build does not install - without these pins the tutor worker crash-loops at
+# boot with ModuleNotFoundError: psycopg (2026-11-19). Versions match the
+# wheel's database extra.
+psycopg2-binary==2.9.13
+psycopg[binary]==3.3.6
 
 # Auth
 python-jose[cryptography]==3.5.0
