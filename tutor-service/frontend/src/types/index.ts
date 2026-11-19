@@ -79,7 +79,14 @@ export type ContentType =
   | 'quiz'
   | 'pronunciation'
   | 'writing'
-  | 'flashcard';
+  | 'flashcard'
+  // Focus-area labels are also used as content kinds by the curriculum pages.
+  | 'conversation'
+  | 'vocabulary'
+  | 'listening'
+  | 'reading'
+  | 'grammar'
+  | 'culture';
 
 export interface LessonContent {
   id: string;
@@ -89,6 +96,8 @@ export interface LessonContent {
   order: number;
   estimatedTime: number;
   required?: boolean;
+  focusArea?: FocusArea;
+  xpReward?: number;
 }
 
 export interface DialogueContent {
@@ -276,8 +285,10 @@ export interface Correction {
 }
 
 export interface TutorResponse {
-  message: ChatMessage;
+  /** The tutor's reply text. */
+  message: string;
   suggestions?: string[];
+  corrections?: Correction[];
   nextExercise?: LessonContent;
   progressUpdate?: Partial<UserProgress>;
   audioUrl?: string;

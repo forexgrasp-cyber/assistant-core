@@ -68,7 +68,7 @@ export function AudioPlayer({
   const audioContextRef = useRef<AudioContext | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
   const animationRef = useRef<number | null>(null)
-  const dataArrayRef = useRef<Uint8Array | null>(null)
+  const dataArrayRef = useRef<Uint8Array<ArrayBuffer> | null>(null)
 
   // Audio visualization setup
   useEffect(() => {
@@ -322,7 +322,7 @@ export function AudioPlayer({
                 />
                 <Button
                   variant="primary"
-                  size="xl"
+                  size="lg"
                   onClick={togglePlayPause}
                   leftIcon={isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-1" />}
                   className="shadow-lg shadow-primary-500/30"
@@ -470,4 +470,4 @@ export function AudioPlayer({
 }
 
 // Import missing icons
-import { FileText, ArrowUpRight } from 'lucide-react'
+import { FileText } from 'lucide-react'

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Trophy,
@@ -23,7 +23,7 @@ import {
   ChevronUp,
   Download,
   Share2,
-  Print,
+  Printer,
   Mail,
   Copy,
   Settings,
@@ -50,6 +50,8 @@ import {
   Trophy as TrophyIcon,
   Medal as MedalIcon,
   Award as AwardIcon,
+  ArrowUpRight,
+  X,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -59,7 +61,9 @@ import confetti from 'canvas-confetti'
 import type { CEFRLevel, FocusArea } from '@/types'
 
 export function Progress() {
-  const { user, userProgress, lessonProgress, lessons, targetLanguage, nativeLanguage, streak, xp, achievements } = useTutorStore()
+  const { user, userProgress, lessonProgress, lessons, targetLanguage, nativeLanguage } = useTutorStore()
+  const streak = userProgress?.streak ?? 0
+  const xp = userProgress?.xp ?? 0
   const [activeTab, setActiveTab] = useState<'overview' | 'skills' | 'achievements' | 'activity' | 'reports'>('overview')
   const [dateRange, setDateRange] = useState<'week' | 'month' | 'quarter' | 'year' | 'all'>('month')
   const [showExportModal, setShowExportModal] = useState(false)
@@ -67,7 +71,7 @@ export function Progress() {
   const [confettiTrigger, setConfettiTrigger] = useState(0)
 
   // Confetti for milestones
-  useState(() => {
+  useEffect(() => {
     if (confettiTrigger > 0) {
       confetti({
         particleCount: 100,
@@ -137,6 +141,65 @@ export function Progress() {
 
   const unlockedAchievements = allAchievements.filter(a => a.unlocked).length
   const totalAchievements = allAchievements.length
+
+  // Export the learner's progress report in the chosen format
+  const generateReport = () => {
+    const report = {
+      generatedAt: new Date().toISOString(),
+      dateRange,
+      user: user ? { id: user.id, name: user.name, email: user.email } : null,
+      targetLanguage,
+      nativeLanguage,
+      progress: userProgress,
+      lessonProgress,
+      lessonsCompleted: completedLessons,
+      lessonsMastered: masteredLessons,
+      totalTimeSpentMinutes: Math.round(totalTimeSpent / 60),
+      streak,
+      xp,
+      currentLevel,
+      achievementsUnlocked: unlockedAchievements,
+      achievementsTotal: totalAchievements,
+    }
+    let blob: Blob
+    let filename: string
+    if (exportFormat === 'csv') {
+      const rows = [
+        ['metric', 'value'],
+        ['level', currentLevel],
+        ['xp', String(xp)],
+        ['streak', String(streak)],
+        ['lessons_completed', String(completedLessons)],
+        ['lessons_mastered', String(masteredLessons)],
+        ['total_time_minutes', String(Math.round(totalTimeSpent / 60))],
+        ['achievements', `${unlockedAchievements}/${totalAchievements}`],
+      ]
+      blob = new Blob([rows.map(r => r.join(',')).join('\n')], { type: 'text/csv' })
+      filename = `progress-report-${dateRange}.csv`
+    } else if (exportFormat === 'html') {
+      const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      const html = [
+        '<!doctype html><html><head><meta charset="utf-8"><title>Progress Report</title></head><body>',
+        `<h1>Progress Report</h1><p>Generated ${esc(report.generatedAt)} (${esc(dateRange)})</p>`,
+        `<p>Level: <b>${esc(currentLevel)}</b> | XP: <b>${xp}</b> | Streak: <b>${streak}</b></p>`,
+        `<p>Lessons completed: ${completedLessons} / mastered: ${masteredLessons} | Time: ${Math.round(totalTimeSpent / 60)} min</p>`,
+        `<pre>${esc(JSON.stringify(report.progress, null, 2))}</pre>`,
+        '</body></html>',
+      ].join('\n')
+      blob = new Blob([html], { type: 'text/html' })
+      filename = `progress-report-${dateRange}.html`
+    } else {
+      // 'json' and 'pdf' (no pdf renderer in the browser build) both ship structured data
+      blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })
+      filename = `progress-report-${dateRange}.${exportFormat === 'pdf' ? 'json' : 'json'}`
+    }
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="space-y-6 animate-in">

@@ -48,8 +48,9 @@ import { Input, Textarea } from '@/components/ui/Input'
 import { useTutorStore } from '@/stores/tutorStore'
 import { useTutor } from '@/contexts/TutorContext'
 import { useSpeechRecognition, useSpeechSynthesis } from '@/hooks/useSpeechRecognition'
-import { cn, formatTime, generateId } from '@/lib/utils'
+import { cn, formatTime, generateId, getCEFRColor } from '@/lib/utils'
 import { ChatInterface } from '@/components/chat/ChatInterface'
+import type { ChatInterfaceHandle } from '@/components/chat/ChatInterface'
 import { PronunciationEvaluator } from '@/components/pronunciation/PronunciationEvaluator'
 import { WritingEvaluator } from '@/components/writing/WritingEvaluator'
 import { ExercisePlayer } from '@/components/lesson/ExercisePlayer'
@@ -68,7 +69,7 @@ export function LessonPlayer() {
   const { lessonId } = useParams<{ lessonId: string }>()
   const navigate = useNavigate()
   const { user, lessons, lessonProgress, currentLesson, currentContentIndex, setCurrentLesson, setCurrentContentIndex, completeLesson, updateLessonProgress, targetLanguage, nativeLanguage, autoPlayAudio, updateProgress, dailyGoalMinutes, addToPracticeHistory } = useTutorStore()
-  const { sendMessage, sendVoiceMessage, evaluatePronunciation, evaluateWriting, tutorState, isConnected } = useTutorStore()
+  const { sendMessage, sendVoiceMessage, evaluatePronunciation, evaluateWriting, tutorState, isConnected } = useTutor()
   const { user: authUser } = useAuth()
 
   // Speech recognition & synthesis
@@ -113,7 +114,7 @@ export function LessonPlayer() {
 
   // Refs
   const contentContainerRef = useRef<HTMLDivElement>(null)
-  const chatContainerRef = useRef<HTMLDivElement>(null)
+  const chatContainerRef = useRef<ChatInterfaceHandle>(null)
 
   // Load lesson on mount
   useEffect(() => {
@@ -834,4 +835,3 @@ function TranscriptViewer({ content, targetLanguage, nativeLanguage }: { content
 
 // Import missing icons
 import { Clock, AlertTriangle } from 'lucide-react'
-import confetti from 'canvas-confetti'

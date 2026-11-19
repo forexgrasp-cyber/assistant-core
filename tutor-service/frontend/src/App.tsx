@@ -12,6 +12,7 @@ import { MainLayout } from '@/layouts/MainLayout'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { useAuth } from '@/contexts/AuthContext'
 import { OfflineProvider } from '@/contexts/OfflineContext'
+import type { CEFRLevel } from '@/types'
 
 // Lazy load heavy pages
 const LessonPlayerLazy = lazy(() => import('@/pages/LessonPlayer').then((m) => ({ default: m.LessonPlayer })))
@@ -246,7 +247,7 @@ function RegisterPage() {
         name: formData.name,
         nativeLanguage: formData.nativeLanguage,
         targetLanguage: formData.targetLanguage,
-        cefrLevel: formData.cefrLevel,
+        cefrLevel: formData.cefrLevel as CEFRLevel,
       })
     } catch {
       setError('Registration failed. Please try again.')

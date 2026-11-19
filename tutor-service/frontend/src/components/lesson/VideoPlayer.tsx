@@ -14,7 +14,7 @@ import {
   Sparkles,
   CheckCircle,
   Settings,
-  SlowMo,
+  Turtle as SlowMo,
   FastForward,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -235,7 +235,7 @@ export function VideoPlayer({
           <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-10">
             <Button
               variant="primary"
-              size="xl"
+              size="lg"
               onClick={togglePlayPause}
               className="bg-white/90 text-black hover:bg-white"
             >
@@ -371,7 +371,7 @@ export function VideoPlayer({
               </div>
               <div className="flex items-center justify-center gap-6">
                 <Button variant="ghost" size="icon" onClick={() => skipTime(-10)} leftIcon={<SkipBack className="w-6 h-6" />} />
-                <Button variant="primary" size="xl" onClick={togglePlayPause} leftIcon={isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8 ml-1" />} className="bg-white text-black" />
+                <Button variant="primary" size="lg" onClick={togglePlayPause} leftIcon={isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8 ml-1" />} className="bg-white text-black" />
                 <Button variant="ghost" size="icon" onClick={() => skipTime(10)} rightIcon={<SkipForward className="w-6 h-6" />} />
               </div>
             </div>

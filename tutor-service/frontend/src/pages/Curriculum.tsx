@@ -389,7 +389,8 @@ function getLevelGradient(level: CEFRLevel): string {
 }
 
 export function CurriculumPage() {
-  const { user, lessonProgress, completeLesson, xp } = useTutorStore()
+  const { userProgress, lessonProgress, completeLesson } = useTutorStore()
+  const xp = userProgress?.xp ?? 0
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedLevel, setSelectedLevel] = useState<CEFRLevel | 'all'>('all')
@@ -406,7 +407,7 @@ export function CurriculumPage() {
       const isUnlocked = lesson.prerequisites.every(prereq => 
         lessonProgress[prereq]?.status === 'completed' || lessonProgress[prereq]?.status === 'mastered'
       )
-      const matchesLocked = showLocked || isUnlocked || lessonProgress[lesson.id]?.status !== 'locked'
+      const matchesLocked = showLocked || isUnlocked
       return matchesSearch && matchesLevel && matchesFocus && matchesLocked
     })
   }, [searchQuery, selectedLevel, selectedFocusArea, showLocked, lessonProgress])
@@ -443,7 +444,7 @@ export function CurriculumPage() {
     const completed = levelLessons.filter(l => lessonProgress[l.id]?.status === 'completed' || lessonProgress[l.id]?.status === 'mastered').length
     const mastered = levelLessons.filter(l => lessonProgress[l.id]?.status === 'mastered').length
     const percent = levelLessons.length > 0 ? Math.round((completed / levelLessons.length) * 100) : 0
-    const isCurrentLevel = user?.level === level
+    const isCurrentLevel = userProgress?.currentLevel === level
     const gradient = isCurrentLevel ? 'linear-gradient(90deg, #fff 0%, #e0e7ff 100%)' : getLevelGradient(level)
     
     const percentClassName = isCurrentLevel ? 'text-white' : 'font-semibold text-gray-900'
@@ -531,20 +532,16 @@ export function CurriculumPage() {
             </div>
             <Select
               value={selectedLevel}
-              onValueChange={setSelectedLevel}
+              onChange={(e) => setSelectedLevel(e.target.value as CEFRLevel | 'all')}
               className="w-full sm:w-40"
-            >
-              <option value="all">All Levels</option>
-              {levels.map(l => <option key={l} value={l}>{l}</option>)}
-            </Select>
+              options={[{ value: 'all', label: 'All Levels' }, ...levels.map(l => ({ value: l, label: l }))]}
+            />
             <Select
               value={selectedFocusArea}
-              onValueChange={setSelectedFocusArea}
+              onChange={(e) => setSelectedFocusArea(e.target.value as FocusArea | 'all')}
               className="w-full sm:w-48"
-            >
-              <option value="all">All Topics</option>
-              {focusAreaOptions.map(f => <option key={f} value={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</option>)}
-            </Select>
+              options={[{ value: 'all', label: 'All Topics' }, ...focusAreaOptions.map(f => ({ value: f, label: f.charAt(0).toUpperCase() + f.slice(1) }))]}
+            />
             <Button variant="outline" onClick={() => setShowLocked(!showLocked)} className={showLocked ? 'bg-primary-50 border-primary-200 text-primary-700' : ''}>
               <Lock className="w-4 h-4 mr-2" />
               {showLocked ? 'Show Locked' : 'Hide Locked'}

@@ -18,7 +18,7 @@ import {
   Flag,
   Copy,
   Settings,
-  SlowMo,
+  Turtle as SlowMo,
   FastForward,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -300,7 +300,7 @@ export function PronunciationEvaluator({
                 <p className="text-gray-600 mb-6">Press the button and speak the target phrase</p>
                 <Button
                   variant="primary"
-                  size="xl"
+                  size="lg"
                   onClick={startRecording}
                   leftIcon={<Mic className="w-6 h-6" />}
                   className="shadow-xl shadow-primary-500/30"
@@ -317,7 +317,7 @@ export function PronunciationEvaluator({
                 <p className="text-gray-600 mb-6">Speak clearly into your microphone</p>
                 <Button
                   variant="danger"
-                  size="xl"
+                  size="lg"
                   onClick={stopRecording}
                   leftIcon={<MicOff className="w-6 h-6" />}
                 >

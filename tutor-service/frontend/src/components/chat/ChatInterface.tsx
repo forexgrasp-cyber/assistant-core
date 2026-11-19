@@ -35,6 +35,8 @@ import {
   Shield,
   Clock,
   Loader2,
+  ChevronDown,
+  BookOpen,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
@@ -56,7 +58,11 @@ interface ChatInterfaceProps {
   browserSupportsSpeechRecognition: boolean
 }
 
-export const ChatInterface = forwardRef<HTMLDivElement, ChatInterfaceProps>(
+export interface ChatInterfaceHandle {
+  focus: () => void
+}
+
+export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>(
   (
     {
       messages,
@@ -389,7 +395,7 @@ export const ChatInterface = forwardRef<HTMLDivElement, ChatInterfaceProps>(
               {messages.map((message, index) => (
                 <div key={`${index}-${message.id}`} className="group">
                   <div className="flex items-start gap-3">
-                    {!message.role === 'user' && getMessageAvatar(message.role)}
+                    {message.role !== 'user' && getMessageAvatar(message.role)}
                     <div className="flex-1">
                       {message.role === 'assistant' && (
                         <div className="flex items-center gap-2 mb-1">

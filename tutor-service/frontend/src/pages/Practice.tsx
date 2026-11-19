@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Mic,
@@ -393,7 +393,6 @@ export function Practice() {
         <StatCard icon={Zap} value={(practiceStats.totalXPEarned ?? 0).toLocaleString()} label="XP Earned" color="purple" />
       </div>
 
-      {/* Practice Modes */}
       <section className="space-y-4">
         <h2 className="text-xl font-bold text-gray-900">Choose a Practice Mode</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -512,7 +511,7 @@ export function Practice() {
             </Button>
           </div>
         </Card>
-      )})}
+      )})()}
 
       {/* Quick Practice Actions */}
       <section className="space-y-4">
@@ -707,5 +706,4 @@ function QuickActionCard({ title, description, icon, color, onClick }: { title: 
 }
 
 // Import missing icons
-import { ArrowLeft, Play, Pause } from 'lucide-react'
-import { useState, useRef, useEffect } from 'react'
+import { ArrowLeft } from 'lucide-react'

@@ -285,7 +285,7 @@ interface LessonGeneratorPageProps {}
 
 export function LessonGeneratorPage() {
   const { user } = useAuth();
-  const { user: tutorUser, targetLanguage, cefrLevel } = useTutorStore();
+  const { user: tutorUser, userProgress, targetLanguage, cefrLevel } = useTutorStore();
   
   const [activeTab, setActiveTab] = useState<'generate' | 'search' | 'curriculum' | 'sources'>('generate');
   
@@ -293,7 +293,7 @@ export function LessonGeneratorPage() {
     focus_area: 'conversation',
     age_group: 'adult',
     gamification: 'medium',
-    duration_minutes: tutorUser?.dailyGoal?.targetMinutes || 15,
+    duration_minutes: userProgress?.dailyGoal.targetMinutes || 15,
     language: targetLanguage || 'es',
   });
   const [generatedLesson, setGeneratedLesson] = useState<LessonBlueprint | null>(null);
@@ -437,7 +437,7 @@ export function LessonGeneratorPage() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="w-full">
           <TabsList className="grid w-full grid-cols-4 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
             <TabsTrigger value="generate" className="gap-2"><MagicWand className="h-4 w-4" /> Generate Lesson</TabsTrigger>
             <TabsTrigger value="search" className="gap-2"><Search className="h-4 w-4" /> Search Content</TabsTrigger>
@@ -529,7 +529,7 @@ export function LessonGeneratorPage() {
                       <Button className="w-full justify-center gap-2" size="lg" onClick={() => handleGenerateLesson(true)} disabled={generateLoading}>
                         {generateLoading ? <> <Loader2 className="h-4 w-4 animate-spin" /> Generating Preview... </> : <> <Eye className="h-4 w-4" /> Preview Lesson </>}
                       </Button>
-                      <Button className="w-full justify-center gap-2" size="lg" variant="default" onClick={() => handleGenerateLesson(false)} disabled={generateLoading}>
+                      <Button className="w-full justify-center gap-2" size="lg" onClick={() => handleGenerateLesson(false)} disabled={generateLoading}>
                         {generateLoading ? <> <Loader2 className="h-4 w-4 animate-spin" /> Generating & Saving... </> : <> <MagicWand className="h-4 w-4" /> Generate & Save </>}
                       </Button>
                     </div>
@@ -602,7 +602,7 @@ export function LessonGeneratorPage() {
                           <CardContent>
                             <div className="flex flex-wrap gap-2">
                               {generatedLesson.vocabulary_targets.map((word, i) => (
-                                <Badge key={i} variant="secondary" className="gap-1">{word} <Copy className="h-3 w-3 cursor-pointer hover:text-blue-600" onClick={() => navigator.clipboard.writeText(word)} title="Copy" /></Badge>
+                                <Badge key={i} variant="secondary" className="gap-1">{word} <Copy className="h-3 w-3 cursor-pointer hover:text-blue-600" onClick={() => { void navigator.clipboard.writeText(word) }} /></Badge>
                               ))}
                             </div>
                           </CardContent>
@@ -746,7 +746,7 @@ export function LessonGeneratorPage() {
                             <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900 flex items-center justify-center"><Icon name={getContentTypeIcon(asset.type)} className="h-6 w-6 text-blue-600 dark:text-blue-400" /></div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1"><h4 className="font-medium text-gray-900 dark:text-white truncate">{asset.title}</h4><Badge variant="outline" className="text-xs whitespace-nowrap">{asset.type}</Badge></div>
-                              <div className="flex items-center gap-2 text-xs text-gray-500 mb-2"><Badge variant="secondary" className="gap-1 h-5 px-2"><Icon name={getSourceIcon(asset.source)} className="h-3 w-3" /> {asset.source.replace('_', ' ')}</Badge><span>~{Math.round(asset.duration_seconds / 60)} min</span>{asset.metadata.difficulty && <span>Difficulty: {Math.round(asset.metadata.difficulty * 100)}%</span>}</div>
+                              <div className="flex items-center gap-2 text-xs text-gray-500 mb-2"><Badge variant="secondary" className="gap-1 h-5 px-2"><Icon name={getSourceIcon(asset.source)} className="h-3 w-3" /> {asset.source.replace('_', ' ')}</Badge><span>~{Math.round(asset.duration_seconds / 60)} min</span>{asset.metadata.difficulty != null && <span>Difficulty: {Math.round(Number(asset.metadata.difficulty) * 100)}%</span>}</div>
                               <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{asset.description}</p>
                               <div className="flex flex-wrap gap-1 mt-2">{asset.tags.slice(0, 4).map((tag, i) => (<Badge key={i} variant="outline" className="text-xs h-5 px-2">{tag}</Badge>))}</div>
                             </div>

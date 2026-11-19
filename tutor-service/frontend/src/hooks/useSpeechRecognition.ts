@@ -207,6 +207,7 @@ interface UseSpeechSynthesisReturn {
   isSpeaking: boolean
   isPaused: boolean
   voices: SpeechSynthesisVoice[]
+  selectedVoice: SpeechSynthesisVoice | null
   setVoice: (voice: SpeechSynthesisVoice) => void
 }
 
@@ -337,6 +338,7 @@ export function useSpeechSynthesis({
     isSpeaking,
     isPaused,
     voices,
+    selectedVoice,
     setVoice,
   }
 }
@@ -347,7 +349,7 @@ export function useAudioVisualizer(audioElement: HTMLAudioElement | null) {
   const audioContextRef = useRef<AudioContext | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
   const animationRef = useRef<number | null>(null)
-  const dataArrayRef = useRef<Uint8Array | null>(null)
+  const dataArrayRef = useRef<Uint8Array<ArrayBuffer> | null>(null)
 
   const startVisualization = useCallback(() => {
     if (!audioElement || audioContextRef.current) return

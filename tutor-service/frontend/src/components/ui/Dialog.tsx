@@ -26,7 +26,7 @@ interface DialogProps {
 export function Dialog({ open, onOpenChange, children }: DialogProps) {
   return (
     <DialogContext.Provider value={{ open, onOpenChange }}>
-      {open && <DialogOverlay onClose={onOpenChange} />}
+      {open && <DialogOverlay onClose={() => onOpenChange(false)} />}
       {open && <DialogContent>{children}</DialogContent>}
     </DialogContext.Provider>
   )

@@ -1,4 +1,5 @@
-import { Bell, Search, Menu, Sun, Moon, Globe, ChevronDown, LogOut, User, Settings } from 'lucide-react'
+import { Bell, Search, Menu, Sun, Moon, Globe, ChevronDown, LogOut, User, Settings, Award } from 'lucide-react'
+import { NavLink } from 'react-router-dom'
 import { useState, useRef, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'

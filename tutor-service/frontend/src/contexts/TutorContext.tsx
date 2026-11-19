@@ -111,7 +111,6 @@ export function TutorProvider({ children }: { children: ReactNode }) {
           metadata: {
             audioUrl: response.audioUrl,
             corrections: response.corrections,
-            suggestions: response.suggestions,
           },
         }
 

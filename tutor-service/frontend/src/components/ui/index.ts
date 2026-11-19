@@ -1,6 +1,6 @@
 export { Button, IconButton, FAB } from './Button'
 export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter, LessonCard } from './Card'
-export { Input, Textarea, Label } from './Input'
+export { Input, Textarea } from './Input'
 export { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './Select'
 export { Badge } from './Badge'
 export { Tabs, TabsList, TabsTrigger, TabsContent } from './Tabs'

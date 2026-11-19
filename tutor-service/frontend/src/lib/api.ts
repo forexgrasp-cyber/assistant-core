@@ -5,6 +5,16 @@
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
 
+import type {
+  CEFRLevel,
+  FocusArea,
+  ContentType,
+  Lesson,
+  LessonContent,
+  UserProgress,
+  TutorResponse,
+} from '../types';
+
 class ApiClient {
   private token: string | null = null;
 

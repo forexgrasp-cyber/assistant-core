@@ -130,7 +130,9 @@ const achievements = [
 ]
 
 export function Dashboard() {
-  const { user, userProgress, lessonProgress, lessons: userLessons, setLessons, targetLanguage, nativeLanguage, streak, xp } = useTutorStore()
+  const { user, userProgress, lessonProgress, lessons: userLessons, setLessons, targetLanguage, nativeLanguage } = useTutorStore()
+  const streak = userProgress?.streak ?? 0
+  const xp = userProgress?.xp ?? 0
   const { user: authUser } = useAuth()
   const [currentLessonIndex, setCurrentLessonIndex] = useState(0)
   const [showAllLessons, setShowAllLessons] = useState(false)

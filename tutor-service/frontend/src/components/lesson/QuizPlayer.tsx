@@ -17,6 +17,7 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
 import { Card, CardContent } from '@/components/ui/Card'
 import { cn } from '@/lib/utils'
 import type { LessonContent } from '@/types'
@@ -75,6 +76,9 @@ export function QuizPlayer({
 
   const questions = data.questions
   const currentQuestion = questions[currentQuestionIndex]
+  const correctAnswers: string[] = Array.isArray(currentQuestion.correctAnswer)
+    ? currentQuestion.correctAnswer
+    : [currentQuestion.correctAnswer]
   const isLastQuestion = currentQuestionIndex >= questions.length - 1
 
   // Timer
@@ -523,9 +527,9 @@ export function QuizPlayer({
                   placeholder="Type your answer..."
                   disabled={showFeedback}
                   className={cn(
-                    showFeedback && correctAnswers.some(ca => ca.toLowerCase() === (userAnswer || '').toLowerCase().trim())
+                    showFeedback && typeof userAnswer === 'string' && correctAnswers.some(ca => ca.toLowerCase() === userAnswer.toLowerCase().trim())
                       ? 'border-green-500 bg-green-50'
-                      : showFeedback && userAnswer && !correctAnswers.some(ca => ca.toLowerCase() === (userAnswer || '').toLowerCase().trim())
+                      : showFeedback && userAnswer && !correctAnswers.some(ca => ca.toLowerCase() === (typeof userAnswer === 'string' ? userAnswer : '').toLowerCase().trim())
                       ? 'border-red-500 bg-red-50'
                       : ''
                   )}

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import {
   PenTool,
   CheckCircle,
@@ -561,4 +561,4 @@ function truncate(text: string, length: number): string {
 }
 
 // Import missing icons
-import { Italic, ChevronUp, Volume2, VolumeX, Loader, Target, ArrowRight } from 'lucide-react'
+import { Italic, ChevronUp, Volume2, VolumeX, Loader } from 'lucide-react'

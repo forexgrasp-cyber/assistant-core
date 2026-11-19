@@ -289,7 +289,10 @@ export async function getPendingMutations(type?: PendingMutation['type']): Promi
 }
 
 export async function retryMutation(id: number): Promise<void> {
-  await db.pendingMutations.update(id, (mut: PendingMutation) => ({ retry_count: mut.retry_count + 1 }));
+  const mut = await db.pendingMutations.get(id);
+  if (mut) {
+    await db.pendingMutations.update(id, { retry_count: mut.retry_count + 1 });
+  }
 }
 
 export async function removeMutation(id: number): Promise<void> {
