@@ -1,0 +1,24 @@
+# AI Assistant — local/secret files
+.env
+*.db
+*.sqlite3
+data/
+logs/
+
+# Build artifacts
+dist/
+!dist/.gitkeep
+# Staged private shared wheel (copied from the shared checkout by deploy-ai.sh)
+wheels/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Deployment
+ssl/
+certbot/
+backups/
+deploy/*.tar.gz
+.postgres_password

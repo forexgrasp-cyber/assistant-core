@@ -1,0 +1,160 @@
+# =============================================================================
+# AI Assistant - ai.snapford.com
+# =============================================================================
+# The estate edge (infra-edge Traefik) owns TLS and routes every hostname.
+# This service therefore:
+#   - ships NO proxy of its own (the old nginx + certbot pair is retired: it
+#     fought the edge for ports 80/443 and issued a second certificate for a
+#     host the wildcard *.snapford.com certificate already covers),
+#   - joins the external `web` network and is routed by Docker labels,
+#   - publishes only a LOOPBACK port so the deploy health gate can probe the
+#     container without exposing it to the internet.
+#
+# The shared canonical library is baked into the image as a private wheel (see
+# Dockerfile.prod); deploy-ai.sh stages it from the shared checkout before the
+# build. Nothing of the shared library is mounted at runtime.
+# =============================================================================
+
+name: aiassistant
+
+services:
+  # ============================================================================
+  # DATABASES
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai_assistant_postgres
+    environment:
+      POSTGRES_USER: ai_assistant
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_DB: ai_assistant
+    secrets:
+      - postgres_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_assistant -d ai_assistant"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai_assistant_redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  # ============================================================================
+  # AI ASSISTANT (wrapper app: one deployment, every agent product)
+  # ============================================================================
+  ai-assistant:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: ai_assistant_app
+    environment:
+      # Overrides the .env values (which point at localhost) so the container
+      # reaches postgres/redis by their compose service names.
+      - DATABASE_URL=postgresql+asyncpg://ai_assistant:${AI_DB_PASSWORD}@postgres:5432/ai_assistant
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=production
+      - PYTHONUNBUFFERED=1
+      - PLATFORM_DATA_DIR=/app/data/platform
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Loopback only: the edge reaches the container over the `web` network.
+    # The port exists for the deploy health gate, never for the internet.
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks:
+      - backend
+      - web
+    labels:
+      - traefik.enable=true
+      # Host() rule with an explicit priority: Traefik ranks 0 as unset and
+      # would fall back to rule length.
+      - traefik.http.routers.aiassistant-web.rule=Host(`${TRAEFIK_HOST:-ai.snapford.com}`)
+      - traefik.http.routers.aiassistant-web.priority=30
+      - traefik.http.routers.aiassistant-web.entrypoints=websecure
+      - traefik.http.routers.aiassistant-web.tls.certresolver=le
+      # Wildcard certificate: one cert for the whole *.snapford.com zone
+      # instead of one per host (LE issues 50 certs/week).
+      - traefik.http.routers.aiassistant-web.tls.domains[0].main=*.snapford.com
+      # Self-owned middlewares (estate convention): gate-<slug> allow-all
+      # ipallowlist (the edge fronts with Cloudflare) + the http->https
+      # redirect. Never reference a bare `gate`/`redirect` - nothing defines
+      # those, a dangling reference disables this router and the tools
+      # wildcard (priority 1) answers the host instead.
+      - traefik.http.routers.aiassistant-web.middlewares=gate-aiassistant,ratelimit-aiassistant
+      - traefik.http.services.aiassistant-app.loadbalancer.server.port=8000
+      - traefik.http.middlewares.gate-aiassistant.ipallowlist.sourcerange=0.0.0.0/0,::/0
+      - traefik.http.middlewares.ratelimit-aiassistant.ratelimit.average=100
+      - traefik.http.middlewares.ratelimit-aiassistant.ratelimit.burst=50
+      # http -> https.
+      - traefik.http.routers.aiassistant-web-insecure.rule=Host(`${TRAEFIK_HOST:-ai.snapford.com}`)
+      - traefik.http.routers.aiassistant-web-insecure.priority=30
+      - traefik.http.routers.aiassistant-web-insecure.entrypoints=web
+      - traefik.http.routers.aiassistant-web-insecure.middlewares=redirect-aiassistant
+      - traefik.http.routers.aiassistant-web-insecure.service=aiassistant-app
+      - traefik.http.middlewares.redirect-aiassistant.redirectscheme.scheme=https
+    volumes:
+      - app_data:/app/data
+      - app_logs:/app/logs
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+    logging: &default-logging
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+
+networks:
+  backend:
+    driver: bridge
+  web:
+    external: true
+    name: web
+
+volumes:
+  postgres_data:
+  redis_data:
+  app_data:
+  app_logs:
+
+secrets:
+  postgres_password:
+    file: .postgres_password

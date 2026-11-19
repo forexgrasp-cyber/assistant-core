@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified AI Platform - One Platform, Infinite Possibilities</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .gradient-text { background: linear-gradient(135deg, #0ea5e9 0%, #d946ef 50%, #f97316 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .gradient-bg { background: linear-gradient(135deg, #0ea5e9 0%, #d946ef 50%, #f97316 100%); }
+        .card-hover { transition: all 0.3s ease; }
+        .card-hover:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(14, 165, 233, 0.15); }
+        .feature-badge { background: linear-gradient(135deg, rgba(14,165,233,0.1) 0%, rgba(217,70,239,0.1) 100%); }
+        .pricing-toggle:checked ~ .annual-prices { display: block; }
+        .pricing-toggle:checked ~ .monthly-prices { display: none; }
+        .pricing-toggle:not(:checked) ~ .annual-prices { display: none; }
+        .pricing-toggle:not(:checked) ~ .monthly-prices { display: block; }
+        @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-2">
+                    <div class="w-10 h-10 rounded-xl gradient-bg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                    </div>
+                    <span class="text-xl font-bold gradient-text">UnifiedAI</span>
+                </div>
+                <div class="hidden md:flex items-center gap-8">
+                    <a href="#capabilities" class="text-gray-600 hover:text-gray-900 font-medium transition">Capabilities</a>
+                    <a href="#products" class="text-gray-600 hover:text-gray-900 font-medium transition">Products</a>
+                    <a href="#pricing" class="text-gray-600 hover:text-gray-900 font-medium transition">Pricing</a>
+                    <a href="#enterprise" class="text-gray-600 hover:text-gray-900 font-medium transition">Enterprise</a>
+                    <a href="https://app.unifiedai.com/login" class="text-gray-600 hover:text-gray-900 font-medium transition">Sign In</a>
+                    <a href="https://app.unifiedai.com/register" class="gradient-bg text-white px-6 py-2.5 rounded-xl font-medium hover:opacity-90 transition">Get Started</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto text-center">
+            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-50 border border-primary-100 text-primary-700 text-sm font-medium mb-8 animate-in">
+                <span class="w-2 h-2 rounded-full bg-primary-500 animate-pulse"></span>
+                <span>New: Capability-based platform — pay only for what you use</span>
+            </div>
+            <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+                One Platform.<br>
+                <span class="gradient-text">Infinite AI Capabilities.</span>
+            </h1>
+            <p class="text-xl sm:text-2xl text-gray-600 mb-10 max-w-3xl mx-auto leading-relaxed">
+                Voice receptionists, language tutors, AI chiefs of staff, vertical specialists — 
+                all powered by a single unified platform. Deploy once, enable what you need.
+            </p>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+                <a href="https://app.unifiedai.com/register" class="gradient-bg text-white px-8 py-4 rounded-xl font-semibold text-lg hover:opacity-90 transition shadow-lg shadow-primary-500/25">
+                    Start Free Trial
+                </a>
+                <a href="#demo" class="bg-white text-gray-700 border border-gray-200 px-8 py-4 rounded-xl font-semibold text-lg hover:bg-gray-50 transition">
+                    Watch Demo
+                </a>
+            </div>
+            <div class="flex items-center justify-center gap-12 text-sm text-gray-500">
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                    <span>No credit card required</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                    <span>14-day free trial</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                    <span>Cancel anytime</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Trust Indicators -->
+    <section class="py-12 px-4 sm:px-6 lg:px-8 border-t border-b border-gray-100">
+        <div class="max-w-7xl mx-auto">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 items-center">
+                <div class="text-center">
+                    <div class="text-3xl font-bold gradient-text">10,000+</div>
+                    <div class="text-gray-600">Active Agents</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold gradient-text">2M+</div>
+                    <div class="text-gray-600">Conversations/Month</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold gradient-text">99.9%</div>
+                    <div class="text-gray-600">Uptime SLA</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold gradient-text">50+</div>
+                    <div class="text-gray-600">Atomic Capabilities</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Capabilities Overview -->
+    <section id="capabilities" class="py-20 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">50+ Atomic Capabilities</h2>
+                <p class="text-xl text-gray-600 max-w-2xl mx-auto">Mix and match capabilities to build your perfect AI solution. Each capability is independently versioned, billed, and governed.</p>
+            </div>
+
+            <!-- Category Tabs -->
+            <div class="flex flex-wrap justify-center gap-2 mb-12" role="tablist">
+                <button class="capability-tab px-6 py-3 rounded-xl bg-primary-50 text-primary-700 font-medium border border-primary-200" data-category="all" role="tab" aria-selected="true">All Capabilities</button>
+                <button class="capability-tab px-6 py-3 rounded-xl bg-white text-gray-600 font-medium border border-gray-200 hover:border-primary-300 hover:text-primary-700" data-category="intelligence" role="tab">Intelligence</button>
+                <button class="capability-tab px-6 py-3 rounded-xl bg-white text-gray-600 font-medium border border-gray-200 hover:border-primary-300 hover:text-primary-700" data-category="voice" role="tab">Voice & Telephony</button>
+                <button class="capability-tab px-6 py-3 rounded-xl bg-white text-gray-600 font-medium border border-gray-200 hover:border-primary-300 hover:text-primary-700" data-category="tutor" role="tab">Language Tutor</button>
+                <button class="capability-tab px-6 py-3 rounded-xl bg-white text-gray-600 font-medium border border-gray-200 hover:border-primary-300 hover:text-primary-700" data-category="integrations" role="tab">Integrations</button>
+                <button class="capability-tab px-6 py-3 rounded-xl bg-white text-gray-600 font-medium border border-gray-200 hover:border-primary-300 hover:text-primary-700" data-category="platform" role="tab">Platform</button>
+            </div>
+
+            <!-- Capabilities Grid -->
+            <div id="capabilities-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Capabilities will be rendered by JS -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Products Section -->
+    <section id="products" class="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Pre-Built Product Bundles</h2>
+                <p class="text-xl text-gray-600 max-w-2xl mx-auto">Curated capability bundles for common use cases. Start with a bundle, customize as you grow.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="products-grid">
+                <!-- Product cards rendered by JS -->
+            </div>
+
+            <div class="text-center mt-12">
+                <a href="#custom" class="text-primary-600 hover:text-primary-700 font-medium text-lg inline-flex items-center gap-2">
+                    Need a custom bundle? <span>→</span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="py-20 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Simple, Transparent Pricing</h2>
+                <p class="text-xl text-gray-600 max-w-2xl mx-auto">Pay per capability or choose a bundle. No hidden fees, no surprises.</p>
+            </div>
+
+            <!-- Billing Toggle -->
+            <div class="flex items-center justify-center gap-4 mb-12">
+                <span class="text-gray-600 font-medium">Monthly</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" class="pricing-toggle sr-only peer" id="billing-toggle">
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
+                </label>
+                <span class="text-gray-600 font-medium">Annual <span class="text-green-600 font-semibold ml-1">(Save 20%)</span></span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="pricing-grid">
+                <!-- Pricing cards rendered by JS -->
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section id="how-it-works" class="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">How Your Product Website Works</h2>
+                <p class="text-xl text-gray-600 max-w-2xl mx-auto">Dynamic feature gating based on your purchased capabilities</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="text-center p-8 card-hover bg-gray-50 rounded-2xl">
+                    <div class="w-16 h-16 rounded-xl gradient-bg flex items-center justify-center mx-auto mb-6">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">1. Choose Your Bundle</h3>
+                    <p class="text-gray-600">Select a pre-built product (CallAgent, Tutor, Jarvis, HVAC) or build a custom capability bundle.</p>
+                </div>
+
+                <div class="text-center p-8 card-hover bg-gray-50 rounded-2xl">
+                    <div class="w-16 h-16 rounded-xl gradient-bg flex items-center justify-center mx-auto mb-6">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">2. Tenant Provisioning</h3>
+                    <p class="text-gray-600">Your tenant gets provisioned with exact capability entitlements. Stored in DB, enforced at runtime.</p>
+                </div>
+
+                <div class="text-center p-8 card-hover bg-gray-50 rounded-2xl">
+                    <div class="w-16 h-16 rounded-xl gradient-bg flex items-center justify-center mx-auto mb-6">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">3. Dynamic Product Website</h3>
+                    <p class="text-gray-600">Frontend fetches `/api/v1/entitlements/me` → only shows pages/features you own. Zero config.</p>
+                </div>
+            </div>
+
+            <!-- Visual Example -->
+            <div class="mt-16 p-8 bg-gray-50 rounded-2xl">
+                <h3 class="text-2xl font-bold text-gray-900 mb-6 text-center">Example: Tenant Views</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- CallAgent Tenant View -->
+                    <div class="bg-white rounded-xl p-6 border border-gray-200">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-gray-900">CallAgent Tenant</h4>
+                                <span class="text-sm text-gray-500">$49/mo</span>
+                            </div>
+                        </div>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex items-center gap-2 text-green-600"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> Voice Inbound/Outbound</div>
+                            <div class="flex items-center gap-2 text-green-600"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> Twilio/Plivo/SignalWire</div>
+                            <div class="flex items-center gap-2 text-green-600"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> Call Recording & Transcription</div>
+                            <div class="flex items-center gap-2 text-green-600"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> CRM Integration</div>
+                            <div class="flex items-center gap-2 text-gray-300"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> <span class="line-through text-gray-400">Language Lessons</span></div>
+                            <div class="flex items-center gap-2 text-gray-300"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> <span class="line-through text-gray-400">AI Chief of Staff</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Tutor Tenant View -->
+                    <div class="bg-white rounded-xl p-6 border border-gray-200">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-gray-900">Tutor Tenant</h4>
+                                <span class="text-sm text-gray-500">$29/mo</span>
+                            </div>
+                        </div>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex items-center gap-2 text-green-600"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> 70 Languages, A1-C2</div>
+                            <div class="flex items-center gap-2 text-green-600"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> Persistent Memory & Progress</div>
+                            <div class="flex items-center gap-2 text-green-600"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> Pronunciation & Writing Eval</div>
+                            <div class="flex items-center gap-2 text-green-600"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> AI Lesson Generation</div>
+                            <div class="flex items-center gap-2 text-green-600"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> Gamification (XP, Streaks, Leagues)</div>
+                            <div class="flex items-center gap-2 text-gray-300"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> <span class="line-through text-gray-400">Call Handling</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Combo Tenant View -->
+                    <div class="bg-white rounded-xl p-6 border border-gray-200">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 text-white flex items-center justify-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-gray-900">Combo Tenant</h4>
+                                <span class="text-sm text-gray-500">$129/mo</span>
+                            </div>
+                        </div>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex items-center gap-2 text-green-600"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> All CallAgent Features</div>
+                            <div class="flex items-center gap-2 text-green-600"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> All Tutor Features</div>
+                            <div class="flex items-center gap-2 text-green-600"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> Jarvis (Email, Calendar, Tasks)</div>
+                            <div class="flex items-center gap-2 text-green-600"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> Cross-product Workflows</div>
+                            <div class="flex items-center gap-2 text-green-600"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> Unified Analytics Dashboard</div>
+                            <div class="flex items-center gap-2 text-green-600"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> Single Sign-On Across Products</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Enterprise Section -->
+    <section id="enterprise" class="py-20 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Enterprise Ready</h2>
+                <p class="text-xl text-gray-600 max-w-2xl mx-auto">Security, compliance, and scale for the world's most demanding organizations.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="p-8 bg-white rounded-2xl border border-gray-200 card-hover">
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">Security & Compliance</h3>
+                    <ul class="space-y-2 text-gray-600">
+                        <li class="flex items-center gap-2"><svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> SOC 2 Type II Certified</li>
+                        <li class="flex items-center gap-2"><svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> GDPR, HIPAA, CCPA Ready</li>
+                        <li class="flex items-center gap-2"><svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> End-to-End Encryption</li>
+                        <li class="flex items-center gap-2"><svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></sql> Role-Based Access Control</li>
+                        <li class="flex items-center gap-2"><svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> Audit Logging</li>
+                    </ul>
+                </div>
+                <div class="p-8 bg-white rounded-2xl border border-gray-200 card-hover">
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">Deployment Options</h3>
+                    <ul class="space-y-2 text-gray-600">
+                        <li class="flex items-center gap-2"><svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> Multi-Region Cloud (AWS/GCP/Azure)</li>
+                        <li class="flex items-center gap-2"><svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></sql> Dedicated VPC / Private Link</li>
+                        <li class="flex items-center gap-2"><svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> On-Premises / Air-Gapped</li>
+                        <li class="flex items-center gap-2"><svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></sql> Kubernetes (EKS/GKE/AKS)</li>
+                        <li class="flex items-center gap-2"><svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> 99.99% SLA Available</li>
+                    </ul>
+                </div>
+                <div class="p-8 bg-white rounded-2xl border border-gray-200 card-hover">
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">Enterprise Features</h3>
+                    <ul class="space-y-2 text-gray-600">
+                        <li class="flex items-center gap-2"><svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></sql> Custom Model Fine-Tuning</li>
+                        <li class="flex items-center gap-2"><svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg> Dedicated Support Engineer</li>
+                        <li class="flex items-center gap-2"><svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></sql> SLA with Penalty Clauses</li>
+                        <li class="flex items-center gap-2"><svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></sql> Custom Capability Development</li>
+                        <li class="flex items-center gap-2"><svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></sql> Volume Discounts</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="py-20 px-4 sm:px-6 lg:px-8 gradient-bg">
+        <div class="max-w-4xl mx-auto text-center text-white">
+            <h2 class="text-3xl sm:text-4xl font-bold mb-6">Ready to Build Your AI Solution?</h2>
+            <p class="text-xl mb-10 opacity-90">Start with a free trial. Upgrade capabilities as you grow. No vendor lock-in.</p>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <a href="https://app.unifiedai.com/register" class="bg-white text-primary-600 px-8 py-4 rounded-xl font-semibold text-lg hover:bg-gray-100 transition shadow-xl">
+                    Start Free Trial
+                </a>
+                <a href="mailto:sales@unifiedai.com" class="border-2 border-white text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-white/10 transition">
+                    Contact Sales
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-12 px-4 sm:px-6 lg:px-8 bg-gray-900 text-gray-400">
+        <div class="max-w-7xl mx-auto">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+                <div>
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-10 h-10 rounded-xl gradient-bg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        </div>
+                        <span class="text-xl font-bold text-white">UnifiedAI</span>
+                    </div>
+                    <p class="text-sm">One platform. Infinite capabilities. Build what you need.</p>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-white mb-4">Products</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="#products" class="hover:text-white transition">CallAgent</a></li>
+                        <li><a href="#products" class="hover:text-white transition">Language Tutor</a></li>
+                        <li><a href="#products" class="hover:text-white transition">Jarvis Assistant</a></li>
+                        <li><a href="#products" class="hover:text-white transition">Vertical Specialists</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-white mb-4">Platform</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="#capabilities" class="hover:text-white transition">Capabilities</a></li>
+                        <li><a href="#pricing" class="hover:text-white transition">Pricing</a></li>
+                        <li><a href="#enterprise" class="hover:text-white transition">Enterprise</a></li>
+                        <li><a href="/docs" class="hover:text-white transition">Documentation</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-white mb-4">Company</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="/about" class="hover:text-white transition">About</a></li>
+                        <li><a href="/blog" class="hover:text-white transition">Blog</a></li>
+                        <li><a href="/careers" class="hover:text-white transition">Careers</a></li>
+                        <li><a href="/contact" class="hover:text-white transition">Contact</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-gray-800 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
+                <p class="text-sm">© 2026 UnifiedAI. All rights reserved.</p>
+                <div class="flex items-center gap-6">
+                    <a href="/privacy" class="text-sm hover:text-white transition">Privacy</a>
+                    <a href="/terms" class="text-sm hover:text-white transition">Terms</a>
+                    <a href="/security" class="text-sm hover:text-white transition">Security</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Capability Data
+        const CAPABILITIES = [
+            // Intelligence
+            {id: "intelligence.llm.standard", name: "Standard LLM Access", category: "intelligence", description: "GPT-4o, Claude 3.5 Sonnet via shared pool", price: 0, includedIn: ["callagent", "tutor", "jarvis", "hvac"]},
+            {id: "intelligence.llm.premium", name: "Premium LLM Access", category: "intelligence", description: "GPT-4 Turbo, Claude 3 Opus, dedicated capacity", price: 29, includedIn: ["jarvis"]},
+            {id: "intelligence.llm.byok", name: "Bring Your Own Keys", category: "intelligence", description: "Use your own OpenAI/Anthropic API keys", price: 0, includedIn: ["callagent", "tutor", "jarvis", "hvac"]},
+            {id: "intelligence.rag.basic", name: "Basic RAG", category: "intelligence", description: "Vector search, document ingestion, citations", price: 9, includedIn: ["jarvis"]},
+            {id: "intelligence.rag.advanced", name: "Advanced RAG", category: "intelligence", description: "Hybrid search, reranking, knowledge graphs", price: 29, includedIn: []},
+            {id: "intelligence.tools.basic", name: "Basic Tool Use", category: "intelligence", description: "Function calling, web search, code execution", price: 9, includedIn: ["jarvis"]},
+            {id: "intelligence.tools.advanced", name: "Advanced Tool Use", category: "intelligence", description: "Multi-step agents, tool chains, custom functions", price: 29, includedIn: []},
+            {id: "intelligence.memory.short", name: "Short-term Memory", category: "intelligence", description: "Conversation context window management", price: 0, includedIn: ["callagent", "tutor", "jarvis", "hvac"]},
+            {id: "intelligence.memory.long", name: "Long-term Memory", category: "intelligence", description: "Persistent user profiles, preferences, history", price: 9, includedIn: ["tutor", "jarvis"]},
+            {id: "intelligence.reasoning", name: "Structured Reasoning", category: "intelligence", description: "Chain-of-thought, planning, self-correction", price: 19, includedIn: ["jarvis"]},
+
+            // Voice & Telephony
+            {id: "voice.inbound", name: "Inbound Voice", category: "voice", description: "Receive phone calls, IVR, call routing", price: 19, includedIn: ["callagent", "hvac"]},
+            {id: "voice.outbound", name: "Outbound Voice", category: "voice", description: "Make calls, campaigns, notifications", price: 19, includedIn: ["callagent", "hvac"]},
+            {id: "voice.tts.standard", name: "Standard TTS", category: "voice", description: "Edge TTS, Google TTS - free tier", price: 0, includedIn: ["callagent", "tutor", "hvac"]},
+            {id: "voice.tts.premium", name: "Premium TTS", category: "voice", description: "ElevenLabs, PlayHT - natural voices", price: 19, includedIn: ["tutor"]},
+            {id: "voice.stt.standard", name: "Standard STT", category: "voice", description: "Web Speech API, Whisper.cpp - free", price: 0, includedIn: ["callagent", "tutor", "hvac"]},
+            {id: "voice.stt.premium", name: "Premium STT", category: "voice", description: "Deepgram, AssemblyAI - real-time", price: 19, includedIn: []},
+            {id: "voice.telephony.twilio", name: "Twilio Provider", category: "voice", description: "Global carrier, best reliability", price: 0, includedIn: ["callagent", "hvac"]},
+            {id: "voice.telephony.plivo", name: "Plivo Provider", category: "voice", description: "Cost-effective, good coverage", price: 0, includedIn: ["callagent", "hvac"]},
+            {id: "voice.telephony.signalwire", name: "SignalWire Provider", category: "voice", description: "Developer-friendly, WebRTC native", price: 0, includedIn: []},
+            {id: "voice.telephony.telnyx", name: "Telnyx Provider", category: "voice", description: "Low latency, global network", price: 0, includedIn: []},
+            {id: "voice.recording", name: "Call Recording", category: "voice", description: "Record, store, encrypt call audio", price: 9, includedIn: ["callagent", "hvac"]},
+            {id: "voice.transcription", name: "Real-time Transcription", category: "voice", description: "Live captions, post-call transcripts", price: 9, includedIn: ["callagent", "hvac"]},
+            {id: "voice.vad", name: "Voice Activity Detection", category: "voice", description: "Silence detection, barge-in handling", price: 0, includedIn: ["callagent", "tutor", "hvac"]},
+
+            // Language Tutor
+            {id: "tutor.curriculum", name: "Curriculum Engine", category: "tutor", description: "CEFR A1-C2, 70 languages, structured paths", price: 19, includedIn: ["tutor"]},
+            {id: "tutor.memory", name: "Learner Memory", category: "tutor", description: "Persistent profiles, progress, weak areas", price: 9, includedIn: ["tutor"]},
+            {id: "tutor.gamification", name: "Gamification", category: "tutor", description: "XP, streaks, leagues, quests, achievements", price: 9, includedIn: ["tutor"]},
+            {id: "tutor.pronunciation", name: "Pronunciation Evaluation", category: "tutor", description: "Phoneme-level scoring, feedback", price: 19, includedIn: ["tutor"]},
+            {id: "tutor.writing", name: "Writing Correction", category: "tutor", description: "Grammar, style, coherence evaluation", price: 19, includedIn: ["tutor"]},
+            {id: "tutor.conversation", name: "Conversation Practice", category: "tutor", description: "Free-flow chat with AI tutor", price: 9, includedIn: ["tutor"]},
+            {id: "tutor.lesson_gen", name: "AI Lesson Generation", category: "tutor", description: "Multi-source: YouTube, textbooks, APIs", price: 29, includedIn: ["tutor"]},
+            {id: "tutor.voice_selection", name: "Voice Selection", category: "tutor", description: "By age, gender, accent, language", price: 9, includedIn: ["tutor"]},
+            {id: "tutor.offline", name: "Offline Mode (PWA)", category: "tutor", description: "Service Worker, IndexedDB, background sync", price: 19, includedIn: ["tutor"]},
+
+            // Integrations
+            {id: "integration.email", name: "Email Integration", category: "integrations", description: "Send/receive, SMTP, OAuth (Gmail, Outlook)", price: 9, includedIn: ["jarvis", "callagent"]},
+            {id: "integration.calendar", name: "Calendar Integration", category: "integrations", description: "Google Cal, Outlook, CalDAV - read/write", price: 9, includedIn: ["jarvis"]},
+            {id: "integration.crm", name: "CRM Integration", category: "integrations", description: "Salesforce, HubSpot, Pipedrive, custom", price: 19, includedIn: ["callagent", "hvac"]},
+            {id: "integration.slack", name: "Slack Integration", category: "integrations", description: "Bot, slash commands, notifications", price: 9, includedIn: ["jarvis"]},
+            {id: "integration.whatsapp", name: "WhatsApp Business", category: "integrations", description: "Business API, templates, media", price: 19, includedIn: []},
+            {id: "integration.sms", name: "SMS/MMS", category: "integrations", description: "Twilio, Plivo, Telnyx - global", price: 9, includedIn: ["callagent", "hvac"]},
+            {id: "integration.webhooks", name: "Webhooks", category: "integrations", description: "Custom endpoints, retry, signatures", price: 0, includedIn: ["callagent", "tutor", "jarvis", "hvac"]},
+            {id: "integration.api", name: "REST/GraphQL API", category: "integrations", description: "Full platform API access", price: 0, includedIn: ["callagent", "tutor", "jarvis", "hvac"]},
+
+            // Platform
+            {id: "platform.tenants", name: "Multi-Tenancy", category: "platform", description: "Isolated tenants, shared infrastructure", price: 0, includedIn: ["callagent", "tutor", "jarvis", "hvac"]},
+            {id: "platform.rbac", name: "Role-Based Access", category: "platform", description: "Admin, manager, agent, viewer roles", price: 9, includedIn: ["callagent", "tutor", "jarvis", "hvac"]},
+            {id: "platform.audit", name: "Audit Logging", category: "platform", description: "Immutable logs, compliance export", price: 9, includedIn: []},
+            {id: "platform.analytics", name: "Analytics Dashboard", category: "platform", description: "Usage, costs, performance, custom reports", price: 19, includedIn: ["callagent", "tutor", "jarvis", "hvac"]},
+            {id: "platform.export", name: "Data Export", category: "platform", description: "Conversation history: text/HTML/JSON/PDF", price: 9, includedIn: ["callagent", "tutor", "jarvis", "hvac"]},
+            {id: "platform.workflows", name: "Workflow Engine", category: "platform", description: "Visual builder, triggers, actions, conditions", price: 29, includedIn: ["jarvis"]},
+            {id: "platform.sso", name: "Single Sign-On", category: "platform", description: "SAML, OIDC, SCIM provisioning", price: 29, includedIn: []},
+            {id: "platform.custom_domain", name: "Custom Domains", category: "platform", description: "White-label, SSL, custom branding", price: 19, includedIn: []},
+        ];
+
+        const PRODUCTS = [
+            {id: "callagent", name: "CallAgent", tagline: "AI Voice Receptionist", icon: "phone", color: "blue", price: 49, capabilities: ["voice.inbound", "voice.outbound", "voice.tts.standard", "voice.stt.standard", "voice.telephony.twilio", "voice.telephony.plivo", "voice.recording", "voice.transcription", "voice.vad", "intelligence.llm.standard", "intelligence.llm.byok", "intelligence.memory.short", "integration.crm", "integration.sms", "integration.webhooks", "integration.api", "platform.tenants", "platform.rbac", "platform.analytics", "platform.export"], description: "Never miss a call. AI handles inbound/outbound, books appointments, qualifies leads, transfers to humans."},
+            {id: "tutor", name: "Language Tutor", tagline: "AI Language Coach", icon: "book", color: "purple", price: 29, capabilities: ["tutor.curriculum", "tutor.memory", "tutor.gamification", "tutor.pronunciation", "tutor.writing", "tutor.conversation", "tutor.lesson_gen", "tutor.voice_selection", "tutor.offline", "voice.tts.standard", "voice.tts.premium", "voice.stt.standard", "voice.vad", "intelligence.llm.standard", "intelligence.llm.byok", "intelligence.memory.short", "intelligence.memory.long", "integration.webhooks", "integration.api", "platform.tenants", "platform.rbac", "platform.analytics", "platform.export"], description: "Learn 70 languages with AI. Pronunciation scoring, writing correction, personalized curriculum, gamified progress."},
+            {id: "jarvis", name: "Jarvis", tagline: "AI Chief of Staff", icon: "brain", color: "amber", price: 79, capabilities: ["intelligence.llm.premium", "intelligence.llm.byok", "intelligence.rag.basic", "intelligence.rag.advanced", "intelligence.tools.basic", "intelligence.tools.advanced", "intelligence.memory.short", "intelligence.memory.long", "intelligence.reasoning", "integration.email", "integration.calendar", "integration.slack", "integration.webhooks", "integration.api", "platform.tenants", "platform.rbac", "platform.analytics", "platform.export", "platform.workflows"], description: "Your AI executive assistant. Email, calendar, tasks, research, workflows - proactive and autonomous."},
+            {id: "hvac", name: "HVAC Specialist", tagline: "Vertical Receptionist", icon: "wrench", color: "green", price: 99, capabilities: ["voice.inbound", "voice.outbound", "voice.tts.standard", "voice.stt.standard", "voice.telephony.twilio", "voice.recording", "voice.transcription", "voice.vad", "intelligence.llm.standard", "intelligence.llm.byok", "intelligence.memory.short", "integration.crm", "integration.sms", "integration.webhooks", "integration.api", "platform.tenants", "platform.rbac", "platform.analytics", "platform.export"], description: "HVAC-specific: emergency dispatch, maintenance scheduling, parts lookup, technician routing."},
+        ];
+
+        // Render Capabilities
+        function renderCapabilities(category = "all") {
+            const grid = document.getElementById("capabilities-grid");
+            const filtered = category === "all" ? CAPABILITIES : CAPABILITIES.filter(c => c.category === category);
+            
+            grid.innerHTML = filtered.map(cap => `
+                <div class="card-hover bg-white rounded-xl p-6 border border-gray-100 hover:border-primary-200">
+                    <div class="flex items-start gap-3">
+                        <div class="w-10 h-10 rounded-xl feature-badge flex items-center justify-center flex-shrink-0">
+                            <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                            </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h4 class="font-semibold text-gray-900 mb-1">${cap.name}</h4>
+                            <p class="text-sm text-gray-600 mb-3">${cap.description}</p>
+                            <div class="flex items-center gap-3">
+                                <span class="text-sm font-medium ${cap.price === 0 ? 'text-green-600' : 'text-primary-600'}">
+                                    ${cap.price === 0 ? 'Included' : '$' + cap.price + '/mo'}
+                                </span>
+                                <span class="text-xs text-gray-400">${cap.includedIn.length > 0 ? 'In: ' + cap.includedIn.join(', ') : 'Add-on'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Tab handling
+        document.querySelectorAll('.capability-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.capability-tab').forEach(t => {
+                    t.classList.remove('bg-primary-50', 'text-primary-700', 'border-primary-200');
+                    t.classList.add('bg-white', 'text-gray-600', 'border-gray-200');
+                    t.setAttribute('aria-selected', 'false');
+                });
+                tab.classList.remove('bg-white', 'text-gray-600', 'border-gray-200');
+                tab.classList.add('bg-primary-50', 'text-primary-700', 'border-primary-200');
+                tab.setAttribute('aria-selected', 'true');
+                renderCapabilities(tab.dataset.category);
+            });
+        });
+
+        // Render Products
+        function renderProducts() {
+            const grid = document.getElementById("products-grid");
+            const icons = {
+                phone: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>',
+                book: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>',
+                brain: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>',
+                wrench: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>'
+            };
+
+            grid.innerHTML = PRODUCTS.map(p => `
+                <div class="card-hover bg-white rounded-2xl p-6 border border-gray-100 hover:border-${p.color}-200 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-${p.color}-100 rounded-full blur-3xl opacity-50"></div>
+                    <div class="relative">
+                        <div class="w-12 h-12 rounded-xl bg-${p.color}-100 text-${p.color}-600 flex items-center justify-center mb-4">
+                            ${icons[p.icon] || icons.brain}
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-900 mb-1">${p.name}</h3>
+                        <p class="text-${p.color}-600 font-medium mb-4">${p.tagline}</p>
+                        <p class="text-gray-600 mb-6">${p.description}</p>
+                        <div class="text-3xl font-bold text-gray-900 mb-1">$${p.price}<span class="text-sm font-normal text-gray-500">/mo</span></div>
+                        <ul class="space-y-3 mb-6" style="max-height: 200px; overflow-y: auto;">
+                            ${p.capabilities.slice(0, 8).map(capId => {
+                                const cap = CAPABILITIES.find(c => c.id === capId);
+                                return cap ? `<li class="flex items-center gap-2 text-sm text-gray-600"><svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>${cap.name}</li>` : '';
+                            }).join('')}
+                            ${p.capabilities.length > 8 ? `<li class="text-sm text-gray-400">+${p.capabilities.length - 8} more capabilities</li>` : ''}
+                        </ul>
+                        <a href="https://app.unifiedai.com/register?product=${p.id}" class="w-full block text-center bg-${p.color}-600 text-white py-3 rounded-xl font-medium hover:bg-${p.color}-700 transition">Start with ${p.name}</a>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render Pricing
+        function renderPricing() {
+            const grid = document.getElementById("pricing-grid");
+            const isAnnual = document.getElementById("billing-toggle").checked;
+            
+            grid.innerHTML = PRODUCTS.map(p => {
+                const monthly = p.price;
+                const annual = Math.round(p.price * 12 * 0.8);
+                const displayPrice = isAnnual ? annual : monthly;
+                const period = isAnnual ? 'year' : 'month';
+                const savings = isAnnual ? `Save $${monthly * 12 - annual}/yr` : '';
+                
+                return `
+                    <div class="card-hover bg-white rounded-2xl p-6 border border-gray-100 hover:border-${p.color}-200 ${p.id === 'jarvis' ? 'ring-2 ring-${p.color}-300 relative' : ''} ${p.id === 'jarvis' ? 'scale-105 z-10 shadow-xl' : ''}">
+                        ${p.id === 'jarvis' ? '<div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-${p.color}-500 text-white text-xs font-bold px-3 py-1 rounded-full">Most Popular</div>' : ''}
+                        <div class="w-12 h-12 rounded-xl bg-${p.color}-100 text-${p.color}-600 flex items-center justify-center mb-4 mx-auto">
+                            ${icons[p.icon]}
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-900 text-center mb-1">${p.name}</h3>
+                        <p class="text-gray-500 text-center mb-6">${p.tagline}</p>
+                        <div class="text-center mb-6">
+                            <div class="text-4xl font-bold text-gray-900">$${displayPrice}</div>
+                            <div class="text-gray-500">/ ${period}</div>
+                            ${savings ? `<div class="text-green-600 text-sm font-medium mt-1">${savings}</div>` : ''}
+                        </div>
+                        <ul class="space-y-3 mb-6">
+                            ${p.capabilities.slice(0, 6).map(capId => {
+                                const cap = CAPABILITIES.find(c => c.id === capId);
+                                return cap ? `<li class="flex items-center gap-2 text-sm text-gray-600"><svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>${cap.name}</li>` : '';
+                            }).join('')}
+                        </ul>
+                        <a href="https://app.unifiedai.com/register?product=${p.id}&billing=${isAnnual ? 'annual' : 'monthly'}" class="w-full block text-center ${p.id === 'jarvis' ? 'bg-${p.color}-600' : 'bg-white border-2 border-${p.color}-600 text-${p.color}-600'} text-white py-3 rounded-xl font-medium hover:bg-${p.color}-700 hover:border-${p.color}-700 transition ${p.id !== 'jarvis' ? 'hover:text-white' : ''}">Get Started</a>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Billing toggle
+        document.getElementById("billing-toggle").addEventListener("change", renderPricing);
+
+        // Initialize
+        renderCapabilities();
+        renderProducts();
+        renderPricing();
+    </script>
+</body>
+</html>
