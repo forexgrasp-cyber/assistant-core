@@ -93,8 +93,10 @@ COPY --chown=appuser:appuser alembic/ ./alembic/
 COPY --chown=appuser:appuser alembic.ini ./
 COPY --chown=appuser:appuser pyproject.toml ./
 
-# Copy built frontend from frontend-builder
-COPY --from=frontend-builder --chown=appuser:appuser /app/frontend/dist ./app/static/
+# Copy built frontend from frontend-builder. vite.config.ts sets
+# outDir: '../app/static', and WORKDIR is /app/frontend, so the bundle
+# lands in /app/app/static inside this stage.
+COPY --from=frontend-builder --chown=appuser:appuser /app/app/static ./app/static/
 
 # Create directories for uploads, logs, etc.
 RUN mkdir -p /app/data/uploads /app/data/logs /app/data/temp && \
