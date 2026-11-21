@@ -94,6 +94,33 @@ docker compose -f "$COMPOSE_FILE" build
 echo "==> Start"
 docker compose -f "$COMPOSE_FILE" up -d
 
+# Idempotent DB role sync: initdb.d scripts only run on a FRESH data volume,
+# so a long-lived postgres_data volume keeps a stale/missing tutor_user and
+# the app crash-loops with "password authentication failed" (2026-11-20).
+# Re-apply the role + database from .env on every deploy.
+TUTOR_DB_PASSWORD="$(grep -E '^TUTOR_DB_PASSWORD=' "$REPO_DIR/.env" | head -1 | cut -d= -f2- | tr -d '\r')"
+if [ -n "${TUTOR_DB_PASSWORD:-}" ]; then
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    if docker compose -f "$COMPOSE_FILE" exec -T postgres pg_isready -U postgres >/dev/null 2>&1; then
+      break
+    fi
+    sleep 3
+  done
+  docker compose -f "$COMPOSE_FILE" exec -i postgres psql -U postgres -v pw="$TUTOR_DB_PASSWORD" >/dev/null 2>&1 <<'EOSQL' || echo "WARN: tutor role sync failed (continuing; health gate will catch it)" >&2
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname='tutor_user') THEN
+    CREATE ROLE tutor_user WITH LOGIN PASSWORD :'pw';
+  ELSE
+    ALTER ROLE tutor_user WITH PASSWORD :'pw';
+  END IF;
+END
+$$;
+SELECT 'CREATE DATABASE tutor_service OWNER tutor_user'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname='tutor_service')\gexec
+EOSQL
+fi
+
 echo "==> Health gate: ${HEALTH_URLS[*]} (timeout ${HEALTH_TIMEOUT}s)"
 deadline=$(( $(date +%s) + HEALTH_TIMEOUT ))
 until all_healthy; do
